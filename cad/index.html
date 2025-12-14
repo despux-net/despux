@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Despux Engineering - Final CAD Viewer</title>
+    <style>
+        /* --- ESTILOS GENERALES --- */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #1e1e1e; 
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            user-select: none;
+        }
+
+        /* --- DEBUGGER (NUEVO) --- */
+        #debug-console {
+            position: absolute; top: 10px; left: 200px;
+            color: #ff3333; font-family: monospace; font-size: 14px;
+            background: rgba(0,0,0,0.5); padding: 5px 10px;
+            pointer-events: none; z-index: 200; display: none;
+        }
+
+        /* --- BRANDING --- */
+        #branding {
+            position: absolute; top: 20px; left: 20px;
+            z-index: 100; cursor: pointer;
+            display: flex; flex-direction: column;
+            border-left: 4px solid #00deff;
+            padding-left: 15px;
+            transition: opacity 0.3s;
+        }
+        #branding:hover { opacity: 0.8; }
+        .brand-title { color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .brand-subtitle { color: #00deff; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* --- UI BIENVENIDA --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s; z-index: 10;
+        }
+        .card {
+            background: rgba(30, 30, 30, 0.9);
+            border: 1px solid #444;
+            padding: 40px; border-radius: 8px;
+            text-align: center; color: white;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            display: flex; flex-direction: column; align-items: center; gap: 15px;
+        }
+        
+        /* --- BOTÓN DE CARGA (NUEVO) --- */
+        .upload-btn {
+            background: transparent;
+            border: 1px solid #00deff;
+            color: #00deff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+            transition: all 0.2s;
+            pointer-events: auto; /* Habilitar clicks */
+        }
+        .upload-btn:hover {
+            background: rgba(0, 222, 255, 0.1);
+            box-shadow: 0 0 10px rgba(0, 222, 255, 0.3);
+            color: white;
+        }
+
+        /* --- BARRA DE HERRAMIENTAS --- */
+        #toolbar {
+            position: absolute; top: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 10px;
+            z-index: 100;
+        }
+        .tool-btn {
+            background: #2a2a2a; color: #ddd;
+            border: 1px solid #444;
+            padding: 10px 15px; border-radius: 4px;
+            cursor: pointer; font-size: 13px; font-weight: 600;
+            display: flex; align-items: center; gap: 10px;
+            transition: all 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .tool-btn:hover { background: #3a3a3a; border-color: #00deff; color: white; }
+        .tool-btn.active { background: #005f73; border-color: #00deff; color: white; }
+
+        /* --- SELECTOR DE IDIOMA --- */
+        #lang-selector {
+            position: absolute; bottom: 20px; left: 20px;
+            display: flex; gap: 15px; z-index: 100;
+        }
+        .lang-flag {
+            font-size: 24px; cursor: pointer; 
+            transition: transform 0.2s; opacity: 0.6;
+        }
+        .lang-flag:hover { transform: scale(1.2); opacity: 1; }
+        .lang-flag.active { opacity: 1; transform: scale(1.1); border-bottom: 2px solid #00deff; }
+
+        /* --- ETIQUETAS --- */
+        .measurement-label {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85); color: #00deff;
+            padding: 4px 8px; border-radius: 2px;
+            font-size: 12px; font-family: 'Consolas', monospace;
+            border: 1px solid #00deff; pointer-events: none;
+            transform: translate(-50%, -100%); white-space: nowrap;
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r117/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.117.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.117.0/examples/js/loaders/STLLoader.js"></script>
+</head>
+<body>
+
+    <div id="branding" onclick="window.location.href='https://www.despux.net'">
+        <div class="brand-title">DESPUX</div>
+        <div class="brand-subtitle">ENGINEERING</div>
+    </div>
+
+    <div id="debug-console">System Ready.</div>
+
+    <div id="ui-layer">
+        <div class="card">
+            <h1 id="txt-welcome-title" style="margin:0; font-weight:300; font-size: 20px; color:#00deff;">VISOR TÉCNICO</h1>
+            <p id="txt-welcome-desc" style="color:#aaa; margin:0; font-size: 14px;">Arrastra un archivo .STL aquí</p>
+            
+            <input type="file" id="file-input" accept=".stl" style="display: none;" />
+            <button id="btn-upload-trigger" class="upload-btn">SELECCIONAR ARCHIVO</button>
+        </div>
+    </div>
+
+    <div id="lang-selector">
+        <div class="lang-flag" onclick="setLanguage('en')" title="English">🇬🇧</div>
+        <div class="lang-flag" onclick="setLanguage('es')" title="Español">🇪🇸</div>
+        <div class="lang-flag" onclick="setLanguage('de')" title="Deutsch">🇩🇪</div>
+    </div>
+
+    <div id="toolbar" style="display:none;">
+        <div class="tool-btn" id="btn-measure" onclick="setTool('measure')">
+            <span>📏</span> <span id="txt-tool-dist">Distancia (2 Pts)</span>
+        </div>
+        <div class="tool-btn" id="btn-circle" onclick="setTool('circle')">
+            <span>⭕</span> <span id="txt-tool-diam">Diámetro (3 Pts)</span>
+        </div>
+        <div class="tool-btn" id="btn-wireframe" onclick="toggleWireframe()">
+            <span>🕸️</span> <span id="txt-tool-wire">Estructura</span>
+        </div>
+        <div class="tool-btn" onclick="clearMeasurements()">
+            <span>🗑️</span> <span id="txt-tool-clear">Borrar</span>
+        </div>
+    </div>
+    
+    <div id="labels-container"></div>
+
+    <script>
+        // --- CONFIGURACIÓN ---
+        var currentLang = 'en'; 
+        const translations = {
+            es: {
+                welcomeTitle: "VISOR TÉCNICO", welcomeDesc: "Arrastra un archivo .STL aquí o...",
+                uploadBtn: "SELECCIONAR ARCHIVO",
+                toolDist: "Distancia (2 Pts)", toolDiam: "Diámetro (3 Pts)",
+                toolWire: "Estructura", toolClear: "Borrar", labelDist: "Dist:", labelDiam: "Ø:"
+            },
+            en: {
+                welcomeTitle: "TECHNICAL VIEWER", welcomeDesc: "Drag & Drop an .STL file here or...",
+                uploadBtn: "SELECT FILE",
+                toolDist: "Distance (2 Pts)", toolDiam: "Diameter (3 Pts)",
+                toolWire: "Wireframe", toolClear: "Clear", labelDist: "Dist:", labelDiam: "Ø:"
+            },
+            de: {
+                welcomeTitle: "TECHNISCHER BETRACHTER", welcomeDesc: "Ziehen Sie eine .STL-Datei hierher oder...",
+                uploadBtn: "DATEI AUSWÄHLEN",
+                toolDist: "Abstand (2 Pkt)", toolDiam: "Durchmesser (3 Pkt)",
+                toolWire: "Drahtgitter", toolClear: "Löschen", labelDist: "Abstand:", labelDiam: "Ø:"
+            }
+        };
+
+        var scene, camera, renderer, controls, mesh;
+        var raycaster, mouse;
+        var activeTool = null; 
+        var measurePoints = []; 
+        var measureMarkers = []; 
+        var measurementLines = []; 
+        var measurementLabels = [];
+        var cursorHelper, currentSnapPoint = null; 
+
+        init();
+        animate();
+        setLanguage('en');
+
+        function log(msg) {
+            var el = document.getElementById('debug-console');
+            el.style.display = 'block';
+            el.innerText = msg;
+            console.log(msg);
+            // Ocultar despues de 3 seg
+            setTimeout(() => { el.style.display = 'none'; }, 5000);
+        }
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1e1e1e); 
+            
+            // Iluminación
+            var hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+            hemiLight.position.set(0, 20, 0);
+            scene.add(hemiLight);
+
+            var dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(10, 50, 20);
+            scene.add(dirLight);
+
+            // Render (Logarithmic Depth Buffer ayuda con parpadeos)
+            renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.body.appendChild(renderer.domElement);
+
+            // Cámara
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100000);
+            camera.position.set(50, 50, 50);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // Helpers
+            var grid = new THREE.GridHelper(1000, 100, 0x555555, 0x333333);
+            scene.add(grid);
+            var axes = new THREE.AxesHelper(50);
+            scene.add(axes);
+
+            // Snapping Cursor
+            raycaster = new THREE.Raycaster();
+            raycaster.params.Line.threshold = 1;
+            mouse = new THREE.Vector2();
+
+            var cursorGeo = new THREE.SphereGeometry(0.5, 16, 16);
+            var cursorMat = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8, depthTest: false });
+            cursorHelper = new THREE.Mesh(cursorGeo, cursorMat);
+            cursorHelper.visible = false;
+            cursorHelper.renderOrder = 999;
+            scene.add(cursorHelper);
+
+            // Eventos
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('mousemove', onMouseMove, false);
+            window.addEventListener('click', onMouseClick, false);
+            setupDragAndDrop();
+            setupFileUpload(); // NUEVA FUNCIÓN
+        }
+
+        // --- IDIOMAS ---
+        function setLanguage(lang) {
+            currentLang = lang;
+            var t = translations[lang];
+            document.getElementById('txt-welcome-title').innerText = t.welcomeTitle;
+            document.getElementById('txt-welcome-desc').innerText = t.welcomeDesc;
+            document.getElementById('btn-upload-trigger').innerText = t.uploadBtn; // ACTUALIZAR TEXTO BOTÓN
+            document.getElementById('txt-tool-dist').innerText = t.toolDist;
+            document.getElementById('txt-tool-diam').innerText = t.toolDiam;
+            document.getElementById('txt-tool-wire').innerText = t.toolWire;
+            document.getElementById('txt-tool-clear').innerText = t.toolClear;
+
+            var flags = document.querySelectorAll('.lang-flag');
+            flags.forEach(f => f.classList.remove('active'));
+            if(lang === 'en') flags[0].classList.add('active');
+            if(lang === 'es') flags[1].classList.add('active');
+            if(lang === 'de') flags[2].classList.add('active');
+        }
+
+        // --- HERRAMIENTAS ---
+        function setTool(toolName) {
+            if (activeTool === toolName) { activeTool = null; } 
+            else { activeTool = toolName; measurePoints = []; }
+            updateToolUI();
+        }
+
+        function updateToolUI() {
+            document.getElementById('btn-measure').classList.remove('active');
+            document.getElementById('btn-circle').classList.remove('active');
+            document.body.style.cursor = "default";
+            controls.enabled = true;
+            cursorHelper.visible = false;
+
+            if (activeTool) {
+                document.body.style.cursor = "none";
+                controls.enabled = false;
+                if(activeTool === 'measure') document.getElementById('btn-measure').classList.add('active');
+                if(activeTool === 'circle') document.getElementById('btn-circle').classList.add('active');
+            }
+        }
+
+        function toggleWireframe() {
+            if(!mesh) return;
+            mesh.material.wireframe = !mesh.material.wireframe;
+            document.getElementById('btn-wireframe').classList.toggle('active');
+        }
+
+        // --- SNAPPING LOGIC ---
+        function onMouseMove(event) {
+            if (!activeTool || !mesh) { cursorHelper.visible = false; return; }
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            var intersects = raycaster.intersectObject(mesh);
+
+            if (intersects.length > 0) {
+                cursorHelper.visible = true;
+                var hit = intersects[0];
+                var rawPoint = hit.point;
+                var face = hit.face;
+                var geometry = mesh.geometry;
+                var posAttribute = geometry.attributes.position;
+                
+                var vA = new THREE.Vector3().fromBufferAttribute(posAttribute, face.a).applyMatrix4(mesh.matrixWorld);
+                var vB = new THREE.Vector3().fromBufferAttribute(posAttribute, face.b).applyMatrix4(mesh.matrixWorld);
+                var vC = new THREE.Vector3().fromBufferAttribute(posAttribute, face.c).applyMatrix4(mesh.matrixWorld);
+
+                var distA = rawPoint.distanceTo(vA);
+                var distB = rawPoint.distanceTo(vB);
+                var distC = rawPoint.distanceTo(vC);
+
+                var snapThreshold = 1.0; 
+                var closestPoint = rawPoint;
+                var snapped = false;
+
+                if (distA < snapThreshold && distA < distB && distA < distC) { closestPoint = vA; snapped = true; }
+                else if (distB < snapThreshold && distB < distA && distB < distC) { closestPoint = vB; snapped = true; }
+                else if (distC < snapThreshold && distC < distA && distC < distB) { closestPoint = vC; snapped = true; }
+
+                cursorHelper.position.copy(closestPoint);
+                currentSnapPoint = closestPoint.clone();
+
+                if (snapped) {
+                    cursorHelper.material.color.setHex(0x00ff00);
+                    cursorHelper.scale.set(1.5, 1.5, 1.5);
+                } else {
+                    cursorHelper.material.color.setHex(0xffff00);
+                    cursorHelper.scale.set(1, 1, 1);
+                }
+            } else {
+                cursorHelper.visible = false;
+                currentSnapPoint = null;
+            }
+        }
+
+        function onMouseClick(event) {
+            // Evitar conflictos con el UI layer cuando está visible
+            if (document.getElementById('ui-layer').style.display !== 'none') return;
+            
+            if (!activeTool || !currentSnapPoint || !cursorHelper.visible) return;
+            addMeasurementPoint(currentSnapPoint);
+        }
+
+        // --- CÁLCULOS MATEMÁTICOS Y DIBUJO ---
+        function addMeasurementPoint(point) {
+            var p = point.clone();
+            measurePoints.push(p);
+
+            var geometry = new THREE.SphereGeometry(0.3, 16, 16);
+            var material = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, depthWrite: false });
+            var marker = new THREE.Mesh(geometry, material);
+            marker.renderOrder = 999;
+            marker.position.copy(p);
+            scene.add(marker);
+            measureMarkers.push(marker);
+
+            // DISTANCIA
+            if (activeTool === 'measure' && measurePoints.length === 2) {
+                var p1 = measurePoints[0];
+                var p2 = measurePoints[1];
+                drawLine(p1, p2);
+                var dist = p1.distanceTo(p2);
+                createLabel(translations[currentLang].labelDist + " " + dist.toFixed(3), p1, p2);
+                measurePoints = []; 
+            }
+            // DIÁMETRO (USANDO DISCO SÓLIDO)
+            else if (activeTool === 'circle' && measurePoints.length === 3) {
+                var p1 = measurePoints[0];
+                var p2 = measurePoints[1];
+                var p3 = measurePoints[2];
+
+                var a = p1.distanceTo(p2);
+                var b = p2.distanceTo(p3);
+                var c = p3.distanceTo(p1);
+                var s = (a + b + c) / 2;
+                var area = Math.sqrt(s * (s - a) * (s - b) * (s - c)); 
+                
+                if (area > 0) {
+                    var radius = (a * b * c) / (4 * area);
+                    log("Radio calc: " + radius.toFixed(2)); // DEBUG
+                    drawFilledDisk(p1, p2, p3, radius); // <--- NUEVA FUNCION
+                    createLabel(translations[currentLang].labelDiam + " " + (radius*2).toFixed(3), p1, p3);
+                } else {
+                    alert("Error: Puntos colineales o invalidos.");
+                }
+                measurePoints = [];
+            }
+        }
+
+        function drawLine(p1, p2) {
+            var lineGeo = new THREE.Geometry();
+            lineGeo.vertices.push(p1, p2);
+            var lineMat = new THREE.LineBasicMaterial({ color: 0x00deff, linewidth: 2, depthTest: false, depthWrite: false });
+            var line = new THREE.Line(lineGeo, lineMat);
+            line.renderOrder = 999;
+            scene.add(line);
+            measurementLines.push(line);
+        }
+
+        // --- NUEVA FUNCIÓN: DISCO SÓLIDO (VISUALMENTE INFALIBLE) ---
+        function drawFilledDisk(p1, p2, p3, radius) {
+            // 1. Vectores para calcular Normal
+            var v1 = new THREE.Vector3().subVectors(p2, p1);
+            var v2 = new THREE.Vector3().subVectors(p3, p1);
+            var normal = new THREE.Vector3().crossVectors(v1, v2).normalize();
+
+            // 2. Calcular Centro
+            var v1sq = v1.lengthSq();
+            var v2sq = v2.lengthSq();
+            var term1 = new THREE.Vector3().crossVectors(v2, normal).multiplyScalar(v1sq);
+            var term2 = new THREE.Vector3().crossVectors(normal, v1).multiplyScalar(v2sq);
+            var num = new THREE.Vector3().addVectors(term1, term2);
+            var centerOffset = num.multiplyScalar(0.5 / Math.pow(normal.length(), 2)); 
+            var center = new THREE.Vector3().addVectors(p1, centerOffset);
+
+            // 3. Crear Geometría de DISCO (CircleGeometry)
+            var geometry = new THREE.CircleGeometry(radius, 64);
+            
+            // Material SEMI-TRANSPARENTE VERDE
+            var material = new THREE.MeshBasicMaterial({ 
+                color: 0x00ff00, 
+                side: THREE.DoubleSide, // Se ve por arriba y abajo
+                transparent: true,
+                opacity: 0.5,
+                depthTest: false, // Siempre encima
+                depthWrite: false
+            });
+            
+            var diskMesh = new THREE.Mesh(geometry, material);
+            diskMesh.renderOrder = 999; // Prioridad máxima
+            
+            // 4. Posicionar
+            diskMesh.position.copy(center);
+            
+            // 5. Orientar
+            // La geometría del círculo mira hacia +Z. Hacemos que mire hacia la normal calculada.
+            var lookTarget = new THREE.Vector3().addVectors(center, normal);
+            diskMesh.lookAt(lookTarget);
+
+            scene.add(diskMesh);
+            measurementLines.push(diskMesh); 
+        }
+
+        function createLabel(text, p1, p2) {
+            var div = document.createElement('div');
+            div.className = 'measurement-label';
+            div.textContent = text;
+            document.getElementById('labels-container').appendChild(div);
+            var midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+            measurementLabels.push({ element: div, position3D: midPoint });
+        }
+
+        function clearMeasurements() {
+            measureMarkers.forEach(m => scene.remove(m));
+            measurementLines.forEach(l => scene.remove(l));
+            measureMarkers = []; measurementLines = []; measurePoints = [];
+            var container = document.getElementById('labels-container');
+            while (container.firstChild) container.removeChild(container.firstChild);
+            measurementLabels = [];
+        }
+
+        function updateLabels() {
+            measurementLabels.forEach(label => {
+                var vector = label.position3D.clone();
+                vector.project(camera);
+                var x = (vector.x * .5 + .5) * window.innerWidth;
+                var y = (-(vector.y * .5) + .5) * window.innerHeight;
+                if(vector.z > 1) { label.element.style.display = 'none'; } 
+                else {
+                    label.element.style.display = 'block';
+                    label.element.style.left = x + 'px';
+                    label.element.style.top = y + 'px';
+                }
+            });
+        }
+
+        function setupDragAndDrop() {
+            var dropZone = document.body;
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eName => {
+                dropZone.addEventListener(eName, function(e) { e.preventDefault(); e.stopPropagation(); }, false);
+            });
+            dropZone.addEventListener('drop', function(e) {
+                var file = e.dataTransfer.files[0];
+                if(file) {
+                    processFile(file);
+                }
+            }, false);
+        }
+
+        // --- NUEVA LÓGICA DE CARGA DE ARCHIVOS ---
+        function setupFileUpload() {
+            var btn = document.getElementById('btn-upload-trigger');
+            var input = document.getElementById('file-input');
+
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Evita clicks al scene
+                input.click();
+            });
+
+            input.addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (file) {
+                    processFile(file);
+                }
+                // Resetear input para permitir cargar el mismo archivo de nuevo si se desea
+                input.value = ''; 
+            });
+        }
+
+        function processFile(file) {
+            var reader = new FileReader();
+            reader.onload = function(event) {
+                loadSTL(event.target.result);
+                document.getElementById('ui-layer').style.display = 'none';
+                document.getElementById('toolbar').style.display = 'flex';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadSTL(buffer) {
+            if(mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); }
+            
+            var loader = new THREE.STLLoader();
+            var geometry = loader.parse(buffer);
+            var material = new THREE.MeshStandardMaterial({ color: 0x808080, metalness: 0.4, roughness: 0.5 });
+            
+            mesh = new THREE.Mesh(geometry, material);
+            geometry.rotateX(-Math.PI / 2); 
+            geometry.center(); 
+            
+            geometry.computeBoundingBox();
+            var box = geometry.boundingBox;
+            geometry.translate(0, -box.min.y, 0); 
+
+            scene.add(mesh);
+            
+            var size = box.getSize(new THREE.Vector3()).length();
+            var center = box.getCenter(new THREE.Vector3());
+            camera.position.copy(center);
+            camera.position.x += size * 1.2;
+            camera.position.y += size * 0.8;
+            camera.position.z += size * 1.2;
+            camera.lookAt(center);
+            controls.target.copy(center);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            updateLabels();
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
