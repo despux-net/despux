@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DESPUX | Soluciones de Ingeniería</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bgBody: 'var(--bg-body)',
+                        bgSurface: 'var(--bg-surface)',
+                        primary: '#3b82f6', // Keep blue as primary logic color
+                        textMain: 'var(--text-main)',
+                        textMuted: 'var(--text-muted)',
+                        border: 'var(--border)',
+                        headerBg: 'var(--header-bg)',
+                    },
+                    boxShadow: {
+                        'primary-glow': '0 0 10px rgba(59, 130, 246, 0.5)',
+                        'glass': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            /* Mac 2010s Light Theme (Default) */
+            --bg-body: #d6d6d6;
+            /* Slightly darker gray as requested */
+            /* Silver background */
+            --bg-surface: #ffffff;
+            /* ... existing vars ... */
+            --text-main: #333333;
+            /* ... */
+            --primary: #3b82f6;
+        }
+
+        /* Dark mode overrides skipped for brevity, keeping existing logical flow */
+
+        /* Global Reset & Base */
+        html {
+            background-color: var(--bg-body);
+            /* Apply background here */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: transparent;
+            /* Transparent to show bg-layer and html bg */
+            color: var(--text-main);
+            overflow: hidden;
+            /* Prevent global scroll */
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .bg-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+
+            /* Head Background Image from GitHub */
+            background-image: url('https://raw.githubusercontent.com/despux-net/despux/main/head.jpg');
+            background-size: 50%;
+            /* 50% smaller */
+            background-position: left center;
+            /* Moved to left side */
+            background-repeat: no-repeat;
+
+            /* Gradient Mask to fade edge */
+            -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 20%, rgba(0, 0, 0, 0) 50%);
+            mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 20%, rgba(0, 0, 0, 0) 50%);
+
+            display: block;
+            pointer-events: none;
+        }
+    </style>
+
+
+  <script type="module" crossorigin src="/assets/index-D60LYDl0.js"></script>
+</head>
+
+<body>
+    <div class="bg-layer"></div>
+    <div id="root"></div>
+</body>
+
+</html>
