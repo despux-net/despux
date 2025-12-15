@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Despux Engineering - Gear Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+        
+        :root {
+            /* Dark Theme (Default) */
+            --bg-body: #0f172a;       
+            --bg-panel: #1e293b;      
+            --bg-input: #020617;      
+            --text-main: #f8fafc;     
+            --text-muted: #94a3b8;    
+            --border-color: #334155;  
+            --brand-primary: #3b82f6; 
+            --accent-bg: rgba(59, 130, 246, 0.15);
+            
+            --canvas-bg: #0f172a;
+            --canvas-grid: rgba(148, 163, 184, 0.1);
+            --gear-fill: #334155;
+            --gear-stroke: #f1f5f9;
+            --dim-line: #ef4444;
+        }
+
+        [data-theme="light"] {
+            --bg-body: #f8fafc;       
+            --bg-panel: #ffffff;      
+            --bg-input: #f1f5f9;      
+            --text-main: #0f172a;     
+            --text-muted: #64748b;    
+            --border-color: #e2e8f0;  
+            --brand-primary: #2563eb; 
+            --accent-bg: rgba(37, 99, 235, 0.1);
+
+            --canvas-bg: #f8fafc;
+            --canvas-grid: rgba(100, 116, 139, 0.15);
+            --gear-fill: #cbd5e1;
+            --gear-stroke: #1e293b;
+            --dim-line: #dc2626;
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .engineering-grid {
+            background-size: 40px 40px;
+            background-image:
+                linear-gradient(to right, var(--canvas-grid) 1px, transparent 1px),
+                linear-gradient(to bottom, var(--canvas-grid) 1px, transparent 1px);
+        }
+
+        .input-tech {
+            transition: all 0.2s;
+            border: 1px solid var(--border-color);
+            background-color: var(--bg-input);
+            color: var(--text-main);
+        }
+        .input-tech:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 1px var(--brand-primary);
+            outline: none;
+        }
+
+        .btn-lang {
+            opacity: 0.5;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .btn-lang:hover { opacity: 0.8; }
+        .btn-lang.active { 
+            opacity: 1; 
+            border-color: var(--brand-primary);
+            background-color: var(--accent-bg);
+            font-weight: bold;
+        }
+        
+        .btn-unit {
+             border: 1px solid var(--border-color);
+             color: var(--text-muted);
+        }
+        .btn-unit.active {
+            background-color: var(--brand-primary);
+            color: white;
+            border-color: var(--brand-primary);
+        }
+
+        .tab-btn {
+            border-bottom: 2px solid transparent;
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+        .tab-btn:hover { color: var(--text-main); }
+        .tab-btn.active {
+            border-bottom-color: var(--brand-primary);
+            color: var(--brand-primary);
+            font-weight: 600;
+        }
+
+        .tech-table td { padding: 0.75rem 0; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+        .tech-table th { 
+            text-transform: uppercase; 
+            font-size: 0.65rem; 
+            letter-spacing: 0.05em; 
+            color: var(--text-muted); 
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .tech-table tr:last-child td { border-bottom: none; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-body); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-sm">
+
+    <!-- Header -->
+    <header class="h-16 border-b border-[var(--border-color)] bg-[var(--bg-panel)] flex items-center justify-between px-6 shrink-0 z-30">
+        <div class="flex items-center gap-4">
+            <!-- LOGO LINK UPDATE: Redirection to despux.net -->
+            <a href="https://www.despux.net" target="_blank" class="flex items-center gap-2 group hover:opacity-90 transition-opacity">
+                <div class="w-8 h-8 bg-[var(--brand-primary)] text-white flex items-center justify-center font-bold font-mono rounded-sm group-hover:scale-105 transition-transform">DE</div>
+                <div>
+                    <h1 class="font-bold text-[var(--text-main)] tracking-tight leading-none">DESPUX</h1>
+                    <span class="text-[10px] text-[var(--text-muted)] font-medium tracking-widest uppercase">Engineering</span>
+                </div>
+            </a>
+            <div class="h-6 w-px bg-[var(--border-color)] mx-2"></div>
+            <span class="text-xs text-[var(--text-muted)] hidden sm:block" data-i18n="moduleName">Gear Design Module</span>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="flex bg-[var(--bg-input)] rounded border border-[var(--border-color)] p-1">
+                <button onclick="changeLang('es')" class="btn-lang px-2 py-1 rounded text-xs active" id="lang-es">🇪🇸 ES</button>
+                <button onclick="changeLang('en')" class="btn-lang px-2 py-1 rounded text-xs" id="lang-en">🇬🇧 EN</button>
+                <button onclick="changeLang('de')" class="btn-lang px-2 py-1 rounded text-xs" id="lang-de">🇩🇪 DE</button>
+            </div>
+            <button onclick="toggleTheme()" class="w-8 h-8 rounded border border-[var(--border-color)] bg-[var(--bg-input)] text-[var(--text-muted)] hover:text-[var(--text-main)] flex items-center justify-center">
+                <i class="fa-solid fa-moon" id="themeIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- Left Panel: Gear Params & RESULTS -->
+        <aside class="w-80 bg-[var(--bg-panel)] border-r border-[var(--border-color)] flex flex-col shrink-0 z-20 shadow-lg">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-[var(--border-color)] bg-[var(--bg-input)]">
+                <button onclick="switchTab('design')" id="tabDesign" class="tab-btn active flex-1 py-3 text-xs uppercase tracking-wider font-medium text-center" data-i18n="tabDesign">Diseño</button>
+                <button onclick="switchTab('reverse')" id="tabReverse" class="tab-btn flex-1 py-3 text-xs uppercase tracking-wider font-medium text-center" data-i18n="tabReverse">Ing. Inversa</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto">
+                <!-- INPUTS SECTION -->
+                <div class="p-5 border-b border-[var(--border-color)]">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider" data-i18n="geoConfig">Configuración</h2>
+                        <div class="flex gap-1">
+                            <button onclick="setUnits('metric')" id="btnMetric" class="btn-unit px-2 py-0.5 rounded text-[10px] font-bold active">ISO (mm)</button>
+                            <button onclick="setUnits('imperial')" id="btnImperial" class="btn-unit px-2 py-0.5 rounded text-[10px] font-bold">ANSI (in)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="flex bg-[var(--bg-input)] p-1 rounded-md border border-[var(--border-color)]">
+                            <button onclick="setMode('recto')" id="btnRecto" class="flex-1 py-1.5 px-2 rounded text-xs font-semibold text-[var(--text-main)] bg-[var(--bg-panel)] shadow-sm transition-all" data-i18n="spurGear">Recto</button>
+                            <button onclick="setMode('helicoidal')" id="btnHelicoidal" class="flex-1 py-1.5 px-2 rounded text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-main)] transition-all" data-i18n="helicalGear">Helicoidal</button>
+                        </div>
+
+                        <!-- DESIGN PANEL -->
+                        <div id="panelDesign" class="space-y-4 animate-fade-in">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-1">
+                                    <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1.5" id="labelModule" data-i18n="module">Módulo (m)</label>
+                                    <input type="number" id="inModule" value="3" step="0.25" class="input-tech w-full px-3 py-2 rounded font-mono font-medium">
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1.5" data-i18n="teeth">Dientes (Z)</label>
+                                    <input type="number" id="inTeeth" value="28" step="1" class="input-tech w-full px-3 py-2 rounded font-mono font-medium">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- REVERSE PANEL (OPTION 1) -->
+                        <div id="panelReverse" class="hidden space-y-4 animate-fade-in">
+                            <div class="bg-[var(--accent-bg)] border border-[var(--brand-primary)] border-opacity-30 p-3 rounded text-[10px] text-[var(--brand-primary)] mb-2">
+                                <i class="fa-solid fa-wrench mr-1"></i> <span data-i18n="revInfo">Ingrese D. Exterior y Z para encontrar el Módulo.</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="col-span-1">
+                                    <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1.5" data-i18n="outerDiaInput">D. Exterior (mm)</label>
+                                    <input type="number" id="inRevDe" value="90" step="0.1" class="input-tech w-full px-3 py-2 rounded font-mono font-medium border-l-2 border-l-[var(--brand-primary)]">
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1.5" data-i18n="teeth">Dientes (Z)</label>
+                                    <input type="number" id="inRevZ" value="28" step="1" class="input-tech w-full px-3 py-2 rounded font-mono font-medium">
+                                </div>
+                            </div>
+                            <div class="p-3 bg-[var(--bg-input)] rounded border border-[var(--border-color)] mt-2">
+                                <span class="block text-[10px] text-[var(--text-muted)] uppercase mb-1" data-i18n="calcModule">Módulo Calculado</span>
+                                <div class="flex items-baseline gap-2">
+                                    <span id="outRevModule" class="block text-xl font-mono font-bold text-[var(--brand-primary)]">-</span>
+                                    <button onclick="applyReverseModule('de')" class="text-[10px] underline text-[var(--text-muted)] hover:text-[var(--text-main)]" data-i18n="apply">Aplicar</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="helicalInputs" class="hidden animate-fade-in">
+                            <label class="block text-[10px] font-semibold text-[var(--brand-primary)] uppercase mb-1.5" data-i18n="helixAngle">Ángulo Hélice (β)</label>
+                            <div class="relative">
+                                <input type="number" id="inHelixAngle" value="15" class="input-tech w-full px-3 py-2 rounded font-mono font-medium border-[var(--brand-primary)]">
+                                <span class="absolute right-3 top-2 text-xs text-[var(--brand-primary)] opacity-70">deg</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1.5" data-i18n="depthStd">Norma de Profundidad</label>
+                            <div class="relative">
+                                <select id="inSystem" class="input-tech w-full px-3 py-2 rounded text-xs appearance-none cursor-pointer">
+                                    <option value="2.166">Casillas / DIN (2.166)</option>
+                                    <option value="2.25">ISO / ANSI (2.25)</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute right-3 top-2.5 text-[var(--text-muted)] text-[10px] pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RESULTS SECTION -->
+                <div class="p-5">
+                    <h2 class="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-4" data-i18n="results">Resultados</h2>
+                    
+                    <!-- Main KPI Cards -->
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <div class="p-3 bg-[var(--bg-input)] rounded border border-[var(--border-color)]">
+                            <span class="block text-[10px] text-[var(--text-muted)] uppercase mb-1" data-i18n="outerDia">D. Exterior</span>
+                            <div class="flex items-baseline gap-1">
+                                <span id="outDe" class="block text-lg font-mono font-semibold text-[var(--text-main)]">-</span>
+                                <span class="text-[10px] text-[var(--text-muted)] unit-label">mm</span>
+                            </div>
+                        </div>
+                        <div class="p-3 bg-[var(--bg-input)] rounded border border-[var(--border-color)] relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-2 h-2 bg-[var(--brand-primary)] rounded-bl"></div>
+                            <span class="block text-[10px] text-[var(--text-muted)] uppercase mb-1 font-bold" data-i18n="pitchDia">D. Primitivo</span>
+                            <div class="flex items-baseline gap-1">
+                                <span id="outDp" class="block text-lg font-mono font-bold text-[var(--brand-primary)]">-</span>
+                                <span class="text-[10px] text-[var(--text-muted)] unit-label">mm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Technical List -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
+                            <span class="text-xs text-[var(--text-muted)]" data-i18n="totalDepth">Profundidad Total (h)</span>
+                            <span id="outH" class="font-mono font-medium text-[var(--text-main)]">-</span>
+                        </div>
+                        
+                        <div class="relative border-b border-[var(--border-color)] pb-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-[var(--text-muted)]" data-i18n="cutterSet">Fresa (B&S)</span>
+                                <span id="outCutter" class="font-bold text-[var(--brand-primary)] text-lg">-</span>
+                            </div>
+                            <div class="text-right">
+                                <span id="outRange" class="text-[10px] text-[var(--text-muted)]">-</span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
+                            <span class="text-xs text-[var(--text-muted)]" data-i18n="indexing">Divisor (40:1)</span>
+                            <span id="outIndexing" class="font-mono font-medium text-[var(--text-main)]">-</span>
+                        </div>
+
+                        <div id="helicalResults" class="hidden pt-2">
+                            <div class="p-3 bg-[var(--accent-bg)] border border-[var(--brand-primary)] border-opacity-30 rounded text-[var(--brand-primary)] text-xs">
+                                <div class="flex justify-between mb-1">
+                                    <span class="font-medium" data-i18n="lead">Paso Hélice:</span>
+                                    <span id="outLead" class="font-mono font-bold">-</span>
+                                </div>
+                                <div class="flex justify-between opacity-70">
+                                    <span data-i18n="zVirtual">Z Virtual:</span>
+                                    <span id="noteZv" class="font-mono">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-[var(--border-color)] text-[10px] text-[var(--text-muted)] text-center">
+                © 2024 Despux Engineering
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col min-w-0 bg-[var(--bg-body)] relative transition-colors duration-300">
+            <div class="absolute top-4 right-4 z-10 flex gap-2">
+                 <button onclick="exportDXF()" class="bg-[var(--brand-primary)] text-white shadow-sm rounded px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-2 hover:opacity-90 transition-opacity">
+                    <i class="fa-solid fa-file-arrow-down"></i> <span data-i18n="exportDxf">Exportar DXF</span>
+                </button>
+                <div class="bg-[var(--bg-panel)] backdrop-blur border border-[var(--border-color)] shadow-sm rounded px-3 py-1.5 text-xs text-[var(--text-muted)] font-mono">
+                    <span id="scaleInfo">Scale: 1:1</span>
+                </div>
+            </div>
+
+            <div class="flex-1 engineering-grid flex items-center justify-center overflow-hidden">
+                <canvas id="mainCanvas" class="max-w-[90%] max-h-[90%]"></canvas>
+            </div>
+
+            <div class="h-64 bg-[var(--bg-panel)] border-t border-[var(--border-color)] shrink-0 flex flex-col">
+                <div class="px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg-input)] flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-[var(--text-main)] uppercase" data-i18n="fabSpecs">Especificaciones de Fabricación</h3>
+                    <div class="text-xs text-[var(--text-muted)]"><i class="fa-regular fa-file-lines mr-1"></i> <span data-i18n="techReport">Reporte Técnico</span></div>
+                </div>
+                
+                <div class="flex-1 overflow-auto px-6 py-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                        <table class="w-full tech-table text-xs">
+                            <thead><tr><th class="text-left" data-i18n="param">Parámetro</th><th class="text-right"><span data-i18n="value">Valor</span> (<span class="unit-label">mm</span>)</th></tr></thead>
+                            <tbody>
+                                <tr><td data-i18n="circularPitch">Paso Circular</td><td class="text-right font-mono" id="tabPc">-</td></tr>
+                                <tr><td data-i18n="toothThick">Espesor Diente</td><td class="text-right font-mono" id="tabS">-</td></tr>
+                            </tbody>
+                        </table>
+                        <table class="w-full tech-table text-xs">
+                            <thead><tr><th class="text-left" data-i18n="geometry">Geometría</th><th class="text-right"><span data-i18n="value">Valor</span> (<span class="unit-label">mm</span>)</th></tr></thead>
+                            <tbody>
+                                <tr><td data-i18n="addendum">Cabeza (Addendum)</td><td class="text-right font-mono" id="tabAdd">-</td></tr>
+                                <tr><td data-i18n="dedendum">Pie (Dedendum)</td><td class="text-right font-mono" id="tabDed">-</td></tr>
+                                <tr><td data-i18n="rootDia">Fondo (Raíz)</td><td class="text-right font-mono" id="tabRoot">-</td></tr>
+                            </tbody>
+                        </table>
+                         <div class="col-span-1 lg:col-span-2 bg-[var(--bg-input)] rounded border border-[var(--border-color)] p-3">
+                            <h4 class="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-2" data-i18n="processNotes">Notas de Proceso</h4>
+                            <p class="text-xs text-[var(--text-muted)] leading-relaxed">
+                                <span data-i18n="noteConcentricity">Mantener rigurosa concentricidad. Profundidad total de corte</span> <strong id="noteDepth" class="text-[var(--text-main)]">-</strong> <span class="unit-label">mm</span>.
+                                <span id="helicalNote" class="hidden">
+                                    <span data-i18n="noteHelical">Configuración helicoidal requiere giro de mesa de</span> <strong id="noteAngle">-</strong>°.
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT PANEL: SHAFT CONFIGURATION & NEW K MODULE CALCULATION -->
+        <aside class="w-64 bg-[var(--bg-panel)] border-l border-[var(--border-color)] flex flex-col shrink-0 z-20 shadow-lg relative">
+            
+            <!-- Default Shaft Panel -->
+            <div id="panelShaft" class="flex flex-col h-full">
+                <div class="p-4 border-b border-[var(--border-color)] bg-[var(--bg-input)]">
+                    <h3 class="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-bullseye text-[var(--brand-primary)]"></i>
+                        <span data-i18n="shaftConfig">Eje y Chavetero</span>
+                    </h3>
+                </div>
+                
+                <div class="p-5 flex-1 overflow-y-auto">
+                    <div class="mb-6">
+                        <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-2" data-i18n="shaftDia">Diámetro Eje (mm)</label>
+                        <div class="relative">
+                            <input type="number" id="inShaftDia" value="20" min="6" max="500" step="1" class="input-tech w-full px-3 py-2 rounded font-mono font-medium text-right pr-8">
+                            <span class="absolute right-3 top-2 text-xs text-[var(--text-muted)]" id="labelUnitDia">Ø</span>
+                        </div>
+                         <p id="labelStd" class="mt-2 text-[10px] text-[var(--text-muted)] italic">Norma DIN 6885 / Casillas</p>
+                    </div>
+
+                    <div class="bg-[var(--bg-input)] rounded border border-[var(--border-color)] overflow-hidden">
+                        <div class="bg-[var(--accent-bg)] px-3 py-2 border-b border-[var(--border-color)]">
+                             <span class="text-[10px] font-bold text-[var(--brand-primary)] uppercase" data-i18n="stdDim">Dimensiones Normalizadas</span>
+                        </div>
+                        
+                        <div class="p-3 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-[var(--text-muted)]" data-i18n="keyDim">Chaveta (b x h)</span>
+                                <span id="outKeyDim" class="font-mono font-bold text-[var(--text-main)]">6 x 6</span>
+                            </div>
+                            <div class="h-px bg-[var(--border-color)]"></div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-[var(--text-muted)]" data-i18n="hubDepth">Prof. Cubo (t2)</span>
+                                <span id="outKeyT2" class="font-mono font-bold text-[var(--brand-primary)]">2.8 mm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="shaftWarning" class="hidden mt-4 p-3 bg-red-900/20 border border-red-500/30 rounded text-red-400 text-[10px]">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <span data-i18n="warnShaftTooBig">¡Eje crítico! Pared delgada.</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEW K MODULE CALCULATION PANEL (Hidden by default) -->
+            <div id="panelReverseRight" class="hidden flex flex-col h-full absolute inset-0 bg-[var(--bg-panel)] z-10">
+                <div class="p-4 border-b border-[var(--border-color)] bg-[var(--bg-input)]">
+                    <h3 class="text-xs font-bold text-[var(--text-main)] uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-ruler-combined text-[var(--brand-primary)]"></i>
+                        <span>Medición "K" Casillas</span>
+                    </h3>
+                </div>
+                
+                <div class="p-5 flex-1 overflow-y-auto space-y-4">
+                    <div class="text-[10px] text-[var(--text-muted)] mb-2">
+                        Opción independiente de cálculo. Ingrese medida K, Dientes y Ángulo.
+                    </div>
+
+                    <!-- Independent Inputs -->
+                    <div>
+                        <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1">Medida K (mm)</label>
+                        <input type="number" id="inRevK" value="35" step="0.01" class="input-tech w-full px-3 py-2 rounded font-mono font-medium border-l-2 border-l-[var(--brand-primary)]">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                             <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1">Dientes (Z)</label>
+                             <input type="number" id="inRevZK" value="28" step="1" class="input-tech w-full px-3 py-2 rounded font-mono font-medium">
+                        </div>
+                        <div>
+                             <label class="block text-[10px] font-semibold text-[var(--text-muted)] uppercase mb-1">Ángulo (α)</label>
+                             <select id="inRevAlpha" class="input-tech w-full px-2 py-2 rounded text-xs">
+                                 <option value="20">20°</option>
+                                 <option value="14.5">14.5°</option>
+                             </select>
+                        </div>
+                    </div>
+
+                    <!-- Mk Result -->
+                    <div class="p-3 bg-[var(--bg-input)] rounded border border-[var(--border-color)]">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] text-[var(--text-muted)] uppercase">Módulo (Mk)</span>
+                            <span class="text-[9px] text-[var(--text-muted)]">Espacios: <b id="outRevSpaces" class="text-[var(--text-main)]">-</b></span>
+                        </div>
+                        <div class="flex items-baseline gap-2">
+                            <span id="outRevMk" class="block text-xl font-mono font-bold text-[var(--brand-primary)]">-</span>
+                            <button onclick="applyReverseModule('k')" class="text-[10px] underline text-[var(--text-muted)] hover:text-[var(--text-main)]">Aplicar</button>
+                        </div>
+                    </div>
+
+                    <!-- Visualization Box -->
+                    <div class="mt-4 border border-[var(--border-color)] rounded bg-[var(--bg-body)] p-2 flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity" onclick="openKModal()">
+                        <span class="text-[9px] text-[var(--text-muted)] uppercase mb-2 w-full text-left">Esquema de Medición (Clic para ampliar)</span>
+                        <canvas id="canvasK" class="w-full h-32"></canvas>
+                        <p class="text-[9px] text-[var(--text-muted)] mt-1 text-center italic">Medición sobre <span id="outTeethSpan">3</span> dientes</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- Modal for K Measurement Scheme -->
+    <dialog id="kModal" class="bg-transparent p-0 backdrop:bg-black/50">
+        <div class="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-lg shadow-xl p-6 max-w-2xl w-full relative flex flex-col">
+            <button onclick="closeKModal()" class="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--text-main)]">
+                <i class="fa-solid fa-xmark text-xl"></i>
+            </button>
+            <h3 class="text-lg font-bold text-[var(--text-main)] mb-4 text-center uppercase">Esquema de Medición "K"</h3>
+            <div class="flex-1 bg-[var(--bg-body)] rounded border border-[var(--border-color)] p-4 flex items-center justify-center">
+                <canvas id="canvasKModal" class="w-full h-full max-h-[400px]"></canvas>
+            </div>
+            <p class="text-sm text-[var(--text-muted)] mt-4 text-center italic">Medición sobre <span id="outTeethSpanModal">3</span> dientes</p>
+        </div>
+    </dialog>
+
+    <script>
+        // --- TRANSLATION DATA ---
+        const i18n = {
+            es: {
+                moduleName: "Módulo de Diseño",
+                geoConfig: "Configuración",
+                tabDesign: "Diseño",
+                tabReverse: "Ing. Inversa",
+                revInfo: "Calcular Módulo desde D. Exterior y Z",
+                outerDiaInput: "D. Exterior (Medido)",
+                calcModule: "Módulo Calculado",
+                apply: "Usar este valor",
+                spurGear: "Recto",
+                helicalGear: "Helicoidal",
+                module: "Módulo (m)",
+                dp: "Diametral Pitch (DP)",
+                teeth: "Dientes (Z)",
+                helixAngle: "Ángulo Hélice (β)",
+                depthStd: "Norma de Profundidad",
+                results: "Resultados",
+                outerDia: "D. Exterior",
+                pitchDia: "D. Primitivo",
+                totalDepth: "Profundidad Total",
+                cutterSet: "Juego de Fresas (B&S)",
+                indexing: "Divisor (40:1)",
+                lead: "Paso Hélice:",
+                zVirtual: "Z Virtual:",
+                fabSpecs: "Especificaciones de Fabricación",
+                techReport: "Reporte Técnico",
+                param: "Parámetro",
+                value: "Valor",
+                circularPitch: "Paso Circular",
+                toothThick: "Espesor Diente",
+                geometry: "Geometría",
+                addendum: "Cabeza (Addendum)",
+                dedendum: "Pie (Dedendum)",
+                rootDia: "Fondo (Raíz)",
+                processNotes: "Notas de Proceso",
+                noteConcentricity: "Mantener rigurosa concentricidad. Profundidad total de corte",
+                noteHelical: "Configuración helicoidal requiere giro de mesa de",
+                exportDxf: "Exportar DXF",
+                shaftConfig: "Eje y Alojamiento",
+                shaftDia: "Diámetro Eje",
+                stdDim: "Dimensiones Normalizadas",
+                keyDim: "Chaveta (b x h)",
+                hubDepth: "Prof. Cubo (t2)",
+                warnShaftTooBig: "¡Eje crítico! Pared del cubo muy delgada."
+            },
+            en: {
+                moduleName: "Gear Design Module",
+                geoConfig: "Settings",
+                tabDesign: "Design",
+                tabReverse: "Rev. Eng",
+                revInfo: "Calc Module from OD and Z",
+                outerDiaInput: "Outer Dia. (Measured)",
+                calcModule: "Calculated Module",
+                apply: "Use this value",
+                spurGear: "Spur",
+                helicalGear: "Helical",
+                module: "Module (m)",
+                dp: "Diametral Pitch (DP)",
+                teeth: "Teeth (Z)",
+                helixAngle: "Helix Angle (β)",
+                depthStd: "Depth Standard",
+                results: "Results",
+                outerDia: "Outer Dia.",
+                pitchDia: "Pitch Dia.",
+                totalDepth: "Total Depth",
+                cutterSet: "Cutter Set (B&S)",
+                indexing: "Indexing (40:1)",
+                lead: "Helix Lead:",
+                zVirtual: "Virtual Z:",
+                fabSpecs: "Manufacturing Specs",
+                techReport: "Tech Report",
+                param: "Parameter",
+                value: "Value",
+                circularPitch: "Circular Pitch",
+                toothThick: "Tooth Thickness",
+                geometry: "Geometry",
+                addendum: "Addendum",
+                dedendum: "Dedendum",
+                rootDia: "Root Dia.",
+                processNotes: "Process Notes",
+                noteConcentricity: "Maintain strict concentricity. Total cut depth",
+                noteHelical: "Helical setup requires table rotation of",
+                exportDxf: "Export DXF",
+                shaftConfig: "Shaft & Keyway",
+                shaftDia: "Shaft Diameter",
+                stdDim: "Standard Dimensions",
+                keyDim: "Key (b x h)",
+                hubDepth: "Hub Depth (t2)",
+                warnShaftTooBig: "Critical shaft size! Hub wall too thin."
+            },
+            de: {
+                moduleName: "Zahnrad-Design Modul",
+                geoConfig: "Einstellungen",
+                tabDesign: "Design",
+                tabReverse: "Reverse Eng",
+                revInfo: "Modul aus Kopfkreis und Z",
+                outerDiaInput: "Kopfkreis (Gemessen)",
+                calcModule: "Berechnetes Modul",
+                apply: "Wert anwenden",
+                spurGear: "Geradverzahnt",
+                helicalGear: "Schrägverzahnt",
+                module: "Modul (m)",
+                dp: "Diametral Pitch (DP)",
+                teeth: "Zähnezahl (Z)",
+                helixAngle: "Schrägungswinkel (β)",
+                depthStd: "Zahntiefe Norm",
+                results: "Ergebnisse",
+                outerDia: "Kopfkreisdurchmesser",
+                pitchDia: "Teilkreisdurchmesser",
+                totalDepth: "Zahntiefe",
+                cutterSet: "Fräsersatz (B&S)",
+                indexing: "Teilkopf (40:1)",
+                lead: "Steigung:",
+                zVirtual: "Virtuelle Z:",
+                fabSpecs: "Fertigungsspezifikationen",
+                techReport: "Technischer Bericht",
+                param: "Parameter",
+                value: "Wert",
+                circularPitch: "Teilung",
+                toothThick: "Zahndicke",
+                geometry: "Geometrie",
+                addendum: "Kopfhöhe",
+                dedendum: "Fußhöhe",
+                rootDia: "Fußkreis",
+                processNotes: "Prozesshinweise",
+                noteConcentricity: "Strenge Konzentrizität wahren. Gesamtschnitttiefe",
+                noteHelical: "Schrägverzahnung erfordert Tischdrehung von",
+                exportDxf: "DXF Exportieren",
+                shaftConfig: "Welle & Passfeder",
+                shaftDia: "Wellendurchmesser",
+                stdDim: "Normmaße",
+                keyDim: "Passfeder (b x h)",
+                hubDepth: "Nabentiefe (t2)",
+                warnShaftTooBig: "Welle zu groß! Nabenwand zu dünn."
+            }
+        };
+
+        // --- DIN 6885 KEYWAY DATA TABLE (METRIC mm) ---
+        const keywayStd = [
+            { maxD: 8, b: 2, h: 2, t2: 1.0 },
+            { maxD: 10, b: 3, h: 3, t2: 1.4 },
+            { maxD: 12, b: 4, h: 4, t2: 1.8 },
+            { maxD: 17, b: 5, h: 5, t2: 2.3 },
+            { maxD: 22, b: 6, h: 6, t2: 2.8 },
+            { maxD: 30, b: 8, h: 7, t2: 3.3 },
+            { maxD: 38, b: 10, h: 8, t2: 3.3 },
+            { maxD: 44, b: 12, h: 8, t2: 3.3 },
+            { maxD: 50, b: 14, h: 9, t2: 3.8 },
+            { maxD: 58, b: 16, h: 10, t2: 4.3 },
+            { maxD: 65, b: 18, h: 11, t2: 4.4 },
+            { maxD: 75, b: 20, h: 12, t2: 4.9 },
+            { maxD: 85, b: 22, h: 14, t2: 5.4 },
+            { maxD: 95, b: 25, h: 14, t2: 5.4 },
+            { maxD: 110, b: 28, h: 16, t2: 6.4 },
+            { maxD: 130, b: 32, h: 18, t2: 7.4 },
+            { maxD: 150, b: 36, h: 20, t2: 8.4 },
+            { maxD: 170, b: 40, h: 22, t2: 9.4 },
+            { maxD: 200, b: 45, h: 25, t2: 10.4 },
+            { maxD: 9999, b: 50, h: 28, t2: 11.4 }
+        ];
+
+        // --- ANSI B17.1 KEYWAY DATA TABLE (IMPERIAL inch) ---
+        const keywayStdImperial = [
+            { maxD: 0.4375, b: 0.09375, h: 0.09375, t2: 0.052 },
+            { maxD: 0.5625, b: 0.125, h: 0.125, t2: 0.068 },
+            { maxD: 0.875, b: 0.1875, h: 0.1875, t2: 0.099 },
+            { maxD: 1.25, b: 0.250, h: 0.250, t2: 0.131 },
+            { maxD: 1.375, b: 0.3125, h: 0.3125, t2: 0.163 },
+            { maxD: 1.75, b: 0.375, h: 0.375, t2: 0.196 },
+            { maxD: 2.25, b: 0.500, h: 0.500, t2: 0.261 },
+            { maxD: 2.75, b: 0.625, h: 0.625, t2: 0.327 },
+            { maxD: 3.25, b: 0.750, h: 0.750, t2: 0.392 },
+            { maxD: 3.75, b: 0.875, h: 0.875, t2: 0.456 },
+            { maxD: 4.50, b: 1.000, h: 1.000, t2: 0.521 },
+            { maxD: 9999, b: 1.500, h: 1.500, t2: 0.780 }
+        ];
+
+        // Standard Brown & Sharpe Involute Cutter System
+        const cutterTable = [
+            { id: 1, min: 135, max: 9999, desc: "135 a ∞ dientes (Cremallera)" },
+            { id: 2, min: 55, max: 134, desc: "55 a 134 dientes" },
+            { id: 3, min: 35, max: 54, desc: "35 a 54 dientes" },
+            { id: 4, min: 26, max: 34, desc: "26 a 34 dientes" },
+            { id: 5, min: 21, max: 25, desc: "21 a 25 dientes" },
+            { id: 6, min: 17, max: 20, desc: "17 a 20 dientes" },
+            { id: 7, min: 14, max: 16, desc: "14 a 16 dientes" },
+            { id: 8, min: 12, max: 13, desc: "12 a 13 dientes" }
+        ];
+
+        // --- STATE & CORE LOGIC ---
+        let currentLang = 'es';
+        
+        // Define UI first so it's ready
+        const ui = {
+            inputs: {
+                module: document.getElementById('inModule'),
+                teeth: document.getElementById('inTeeth'),
+                angle: document.getElementById('inHelixAngle'),
+                system: document.getElementById('inSystem'),
+                helicalPanel: document.getElementById('helicalInputs'),
+                labelModule: document.getElementById('labelModule'),
+                revDe: document.getElementById('inRevDe'),
+                revZ: document.getElementById('inRevZ'),
+                outRevModule: document.getElementById('outRevModule'),
+                panelDesign: document.getElementById('panelDesign'),
+                panelReverse: document.getElementById('panelReverse'),
+                shaftDia: document.getElementById('inShaftDia'),
+                // NEW INPUTS FOR Mk
+                revK: document.getElementById('inRevK'),
+                revZK: document.getElementById('inRevZK'),
+                revAlpha: document.getElementById('inRevAlpha'),
+                outRevMk: document.getElementById('outRevMk'),
+                outRevSpaces: document.getElementById('outRevSpaces'),
+                outTeethSpan: document.getElementById('outTeethSpan'),
+            },
+            panels: {
+                shaft: document.getElementById('panelShaft'),
+                revRight: document.getElementById('panelReverseRight')
+            },
+            buttons: {
+                recto: document.getElementById('btnRecto'),
+                helicoidal: document.getElementById('btnHelicoidal'),
+                tabDesign: document.getElementById('tabDesign'),
+                tabReverse: document.getElementById('tabReverse'),
+                langs: {
+                    es: document.getElementById('lang-es'),
+                    en: document.getElementById('lang-en'),
+                    de: document.getElementById('lang-de')
+                },
+                units: {
+                    metric: document.getElementById('btnMetric'),
+                    imperial: document.getElementById('btnImperial')
+                }
+            },
+            outputs: {
+                de: document.getElementById('outDe'),
+                dp: document.getElementById('outDp'),
+                h: document.getElementById('outH'),
+                cutter: document.getElementById('outCutter'),
+                range: document.getElementById('outRange'),
+                indexing: document.getElementById('outIndexing'),
+                lead: document.getElementById('outLead'),
+                helicalRes: document.getElementById('helicalResults'),
+                tabPc: document.getElementById('tabPc'),
+                tabS: document.getElementById('tabS'),
+                tabAdd: document.getElementById('tabAdd'),
+                tabDed: document.getElementById('tabDed'),
+                tabRoot: document.getElementById('tabRoot'),
+                noteDepth: document.getElementById('noteDepth'),
+                helicalNote: document.getElementById('helicalNote'),
+                noteAngle: document.getElementById('noteAngle'),
+                noteZv: document.getElementById('noteZv'),
+                unitLabels: document.querySelectorAll('.unit-label'),
+                outKeyDim: document.getElementById('outKeyDim'),
+                outKeyT2: document.getElementById('outKeyT2'),
+                shaftWarning: document.getElementById('shaftWarning'),
+                labelStd: document.getElementById('labelStd'),
+            },
+            canvas: document.getElementById('mainCanvas'),
+            canvasK: document.getElementById('canvasK'),
+            kModal: document.getElementById('kModal'),
+            canvasKModal: document.getElementById('canvasKModal'),
+            outTeethSpanModal: document.getElementById('outTeethSpanModal'),
+        };
+
+        let state = {
+            mode: 'recto', 
+            activeTab: 'design', 
+            units: 'metric', 
+            val: 3, 
+            z: 28,
+            beta: 15,
+            factorH: 2.166,
+            shaftD: 20,
+            keySpec: { b: 6, h: 6, t2: 2.8 },
+            calc: { Dp: 0, De: 0, Dedendum: 0, H_total: 0, Di: 0 }
+        };
+
+        // --- FUNCTIONS ---
+
+        function findKeywaySpec(d) {
+            // Select Table based on Unit
+            if (state.units === 'metric') {
+                for (let spec of keywayStd) {
+                    if (d <= spec.maxD) return spec;
+                }
+                return keywayStd[keywayStd.length - 1];
+            } else {
+                for (let spec of keywayStdImperial) {
+                    if (d <= spec.maxD) return spec;
+                }
+                return keywayStdImperial[keywayStdImperial.length - 1];
+            }
+        }
+
+        function switchTab(tab) {
+            state.activeTab = tab;
+            if (tab === 'design') {
+                // LEFT PANEL
+                ui.inputs.panelDesign.classList.remove('hidden');
+                ui.inputs.panelReverse.classList.add('hidden');
+                ui.buttons.tabDesign.classList.add('active');
+                ui.buttons.tabReverse.classList.remove('active');
+                
+                // RIGHT PANEL
+                ui.panels.shaft.classList.remove('hidden');
+                ui.panels.revRight.classList.add('hidden');
+            } else {
+                // LEFT PANEL
+                ui.inputs.panelDesign.classList.add('hidden');
+                ui.inputs.panelReverse.classList.remove('hidden');
+                ui.buttons.tabDesign.classList.remove('active');
+                ui.buttons.tabReverse.classList.add('active');
+                
+                // RIGHT PANEL (Show Casillas Mk Tool)
+                ui.panels.shaft.classList.add('hidden');
+                ui.panels.revRight.classList.remove('hidden');
+                
+                calculateReverse(); 
+                calculateMk();
+            }
+        }
+
+        function changeLang(lang) {
+            currentLang = lang;
+            Object.values(ui.buttons.langs).forEach(btn => btn.classList.remove('active'));
+            ui.buttons.langs[lang].classList.add('active');
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (key === 'module' && state.units === 'imperial') {
+                    el.textContent = i18n[lang]['dp'];
+                } else if (i18n[lang][key]) {
+                    el.textContent = i18n[lang][key];
+                }
+            });
+            calculate(); 
+        }
+
+        function setUnits(unit) {
+            state.units = unit;
+            if (unit === 'metric') {
+                ui.buttons.units.metric.classList.add('active');
+                ui.buttons.units.imperial.classList.remove('active');
+                
+                ui.inputs.labelModule.setAttribute('data-i18n', 'module');
+                ui.inputs.labelModule.textContent = i18n[currentLang]['module'];
+                ui.inputs.revDe.previousElementSibling.textContent = i18n[currentLang]['outerDiaInput'] + " (mm)";
+                ui.outputs.unitLabels.forEach(el => el.textContent = 'mm');
+                ui.outputs.labelStd.textContent = "Norma DIN 6885 (mm)";
+                
+                if (ui.inputs.module.value > 20) ui.inputs.module.value = 3; 
+                ui.inputs.shaftDia.value = 20; 
+                
+            } else {
+                ui.buttons.units.metric.classList.remove('active');
+                ui.buttons.units.imperial.classList.add('active');
+                
+                ui.inputs.labelModule.setAttribute('data-i18n', 'dp');
+                ui.inputs.labelModule.textContent = i18n[currentLang]['dp'];
+                ui.inputs.revDe.previousElementSibling.textContent = i18n[currentLang]['outerDiaInput'] + " (in)";
+                ui.outputs.unitLabels.forEach(el => el.textContent = 'in');
+                ui.outputs.labelStd.textContent = "Norma ANSI B17.1 (in)";
+
+                if (ui.inputs.module.value < 4) ui.inputs.module.value = 10;
+                ui.inputs.shaftDia.value = 1.0; 
+            }
+            calculate();
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const icon = document.getElementById('themeIcon');
+            const isLight = body.getAttribute('data-theme') === 'light';
+            if (isLight) {
+                body.removeAttribute('data-theme');
+                icon.className = 'fa-solid fa-moon';
+            } else {
+                body.setAttribute('data-theme', 'light');
+                icon.className = 'fa-solid fa-sun';
+            }
+            calculate();
+            calculateMk(); // Redraw helper canvas if needed
+        }
+
+        function setMode(mode) {
+            state.mode = mode;
+            const activeClass = ['text-[var(--text-main)]', 'bg-[var(--bg-panel)]', 'shadow-sm'];
+            if (mode === 'recto') {
+                ui.inputs.helicalPanel.classList.add('hidden');
+                ui.outputs.helicalRes.classList.add('hidden');
+                ui.buttons.recto.classList.add(...activeClass);
+                ui.buttons.recto.classList.remove('text-[var(--text-muted)]');
+                ui.buttons.helicoidal.classList.remove(...activeClass);
+                ui.buttons.helicoidal.classList.add('text-[var(--text-muted)]');
+            } else {
+                ui.inputs.helicalPanel.classList.remove('hidden');
+                ui.outputs.helicalRes.classList.remove('hidden');
+                ui.buttons.helicoidal.classList.add(...activeClass);
+                ui.buttons.helicoidal.classList.remove('text-[var(--text-muted)]');
+                ui.buttons.recto.classList.remove(...activeClass);
+                ui.buttons.recto.classList.add('text-[var(--text-muted)]');
+            }
+            calculate();
+        }
+
+        function getCutter(teeth) {
+            if (teeth < 12) return { id: "Esp.", desc: "Requiere perfil especial (<12)" };
+            for (let c of cutterTable) {
+                if (teeth >= c.min && teeth <= c.max) return c;
+            }
+            return { id: "?", desc: "Fuera de rango estándar" };
+        }
+
+        // --- REVERSE ENG: OPTION 1 (Diameter) ---
+        function calculateReverse() {
+            if (state.activeTab !== 'reverse') return;
+            const de = parseFloat(ui.inputs.revDe.value) || 0;
+            const z = parseInt(ui.inputs.revZ.value) || 0;
+            const helixAngle = parseFloat(ui.inputs.angle.value) || 0;
+            const helixRad = (helixAngle * Math.PI) / 180;
+            if (de <= 0 || z <= 0) return;
+            let calculatedVal = 0;
+            if (state.units === 'metric') {
+                if (state.mode === 'recto') calculatedVal = de / (z + 2);
+                else calculatedVal = de / ( (z / Math.cos(helixRad)) + 2 );
+            } else {
+                if (state.mode === 'recto') calculatedVal = (z + 2) / de;
+                else calculatedVal = ((z / Math.cos(helixRad)) + 2) / de;
+            }
+            ui.inputs.outRevModule.textContent = calculatedVal.toFixed(4);
+        }
+
+        function applyReverseModule(source) {
+            let val = 0;
+            let zVal = 0;
+
+            if (source === 'de') {
+                val = parseFloat(ui.inputs.outRevModule.textContent);
+                zVal = parseInt(ui.inputs.revZ.value);
+            } else if (source === 'k') {
+                val = parseFloat(ui.inputs.outRevMk.textContent);
+                zVal = parseInt(ui.inputs.revZK.value);
+            }
+
+            if(!isNaN(val) && val > 0) {
+                ui.inputs.module.value = val;
+                ui.inputs.teeth.value = zVal;
+                switchTab('design');
+                calculate();
+            }
+        }
+
+        // --- REVERSE ENG: OPTION 2 (Casillas K) ---
+        function getCasillasSpaces(z, alpha) {
+            // Table from PDF A.L. Casillas
+            if (alpha === 20) {
+                if (z >= 12 && z <= 18) return 1;
+                if (z >= 19 && z <= 27) return 2;
+                if (z >= 28 && z <= 36) return 3;
+                if (z >= 37 && z <= 45) return 4;
+                if (z >= 46 && z <= 54) return 5;
+                if (z >= 55 && z <= 63) return 6;
+                if (z >= 64 && z <= 72) return 7;
+                if (z >= 73 && z <= 81) return 8;
+                if (z > 81) return Math.floor(z/9); // Extrapolation
+            } else {
+                // Assume 14.5 (14 deg 30')
+                if (z >= 12 && z <= 25) return 1;
+                if (z >= 26 && z <= 37) return 2;
+                if (z >= 38 && z <= 50) return 3;
+                if (z >= 51 && z <= 62) return 4;
+                if (z >= 63 && z <= 75) return 5;
+                if (z >= 76 && z <= 87) return 6;
+                if (z >= 88 && z <= 100) return 7;
+                if (z > 100) return Math.floor(z/13);
+            }
+            return 1; // Default fallback
+        }
+
+        function calculateMk() {
+            // Independent Calculation
+            const K = parseFloat(ui.inputs.revK.value) || 0;
+            const Z = parseInt(ui.inputs.revZK.value) || 0;
+            const Alpha = parseFloat(ui.inputs.revAlpha.value);
+            
+            if (K <= 0 || Z <= 0) return;
+
+            // 1. Determine Spaces (C)
+            const C = getCasillasSpaces(Z, Alpha);
+            ui.inputs.outRevSpaces.textContent = C;
+            ui.inputs.outTeethSpan.textContent = C + 1; // Spanning C spaces means measuring over C+1 teeth
+            ui.outTeethSpanModal.textContent = C + 1;
+
+            // 2. Calculate Theoretical K factor (K for Module 1)
+            let factorK = 0;
+            if (Alpha === 20) {
+                // Formula: K = M [ (2.952 * C) + 1.476 + (0.014 * N) ]
+                factorK = (2.952 * C) + 1.476 + (0.014 * Z);
+            } else {
+                // Formula 14.5: K = M [ (3.04280 * C) + 1.5218 + (0.00514 * N) ]
+                factorK = (3.04280 * C) + 1.5218 + (0.00514 * Z);
+            }
+
+            // 3. Calculate Mk
+            // If K_measured = Mk * factorK, then Mk = K_measured / factorK
+            const Mk = K / factorK;
+            
+            ui.inputs.outRevMk.textContent = Mk.toFixed(4);
+            
+            drawK(C, Alpha, ui.canvasK);
+            if (ui.kModal.open) {
+                drawK(C, Alpha, ui.canvasKModal);
+            }
+        }
+
+        function drawK(C, Alpha, canvas) {
+            const ctx = canvas.getContext('2d');
+            const style = getComputedStyle(document.body);
+            const colStroke = style.getPropertyValue('--gear-stroke').trim();
+            const colFill = style.getPropertyValue('--gear-fill').trim();
+            const colDim = style.getPropertyValue('--dim-line').trim();
+            const colBg = style.getPropertyValue('--bg-input').trim();
+            const colPrimary = style.getPropertyValue('--brand-primary').trim();
+
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const teethToSpan = C + 1;
+            const teethToDraw = teethToSpan + 2; // Draw one extra on each side
+
+            // Schematic parameters
+            const pitch = rect.width / (teethToDraw + 0.5);
+            const toothThickness = pitch * 0.5;
+            const addendum = pitch * 0.35;
+            const dedendum = pitch * 0.4;
+            const pressureAngleRad = (Alpha * Math.PI) / 180;
+            const tanPA = Math.tan(pressureAngleRad);
+            
+            const cy = rect.height * 0.6;
+            const startX = (rect.width - (teethToDraw * pitch)) / 2 + pitch * 0.5;
+            
+            ctx.beginPath();
+            ctx.strokeStyle = colStroke;
+            ctx.lineWidth = 1.5;
+            ctx.fillStyle = colFill;
+
+            let leftFlankX = 0;
+            let rightFlankX = 0;
+
+            for (let i = 0; i < teethToDraw; i++) {
+                const xBase = startX + i * pitch;
+                
+                // Points for a single tooth
+                // Bottom Left
+                const p1 = { x: xBase - toothThickness/2 - dedendum*tanPA, y: cy + dedendum };
+                // Pitch Left
+                const p2 = { x: xBase - toothThickness/2, y: cy };
+                // Top Left
+                const p3 = { x: xBase - toothThickness/2 + addendum*tanPA, y: cy - addendum };
+                // Top Right
+                const p4 = { x: xBase + toothThickness/2 - addendum*tanPA, y: cy - addendum };
+                // Pitch Right
+                const p5 = { x: xBase + toothThickness/2, y: cy };
+                // Bottom Right
+                const p6 = { x: xBase + toothThickness/2 + dedendum*tanPA, y: cy + dedendum };
+
+                // Capture measurement points
+                if (i === 1) { // First tooth to measure
+                    leftFlankX = p2.x; // Measure at pitch line roughly
+                }
+                if (i === teethToSpan) { // Last tooth to measure
+                    rightFlankX = p5.x;
+                }
+
+                if (i === 0) ctx.moveTo(p1.x - pitch/2, p1.y); // Start line
+
+                ctx.lineTo(p1.x, p1.y);
+                ctx.lineTo(p3.x, p3.y);
+                ctx.lineTo(p4.x, p4.y);
+                ctx.lineTo(p6.x, p6.y);
+            }
+             ctx.lineTo(startX + teethToDraw * pitch + pitch/2, cy + dedendum); // End line
+
+            ctx.stroke();
+            ctx.fill();
+
+            // Draw Measurement Callipers
+            const measureY = cy - addendum - 10;
+            const caliperHeight = addendum + dedendum + 20;
+            
+            // Jaws
+            ctx.fillStyle = colPrimary + '40'; // Semi-transparent primary
+            ctx.strokeStyle = colPrimary;
+            ctx.lineWidth = 2;
+
+            // Left Jaw
+            ctx.beginPath();
+            ctx.moveTo(leftFlankX, cy);
+            ctx.lineTo(leftFlankX, measureY - 20);
+            ctx.lineTo(leftFlankX - 10, measureY - 20);
+            ctx.lineTo(leftFlankX - 10, cy + dedendum + 10);
+            ctx.lineTo(leftFlankX, cy + dedendum + 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Right Jaw
+            ctx.beginPath();
+            ctx.moveTo(rightFlankX, cy);
+            ctx.lineTo(rightFlankX, measureY - 20);
+            ctx.lineTo(rightFlankX + 10, measureY - 20);
+            ctx.lineTo(rightFlankX + 10, cy + dedendum + 10);
+            ctx.lineTo(rightFlankX, cy + dedendum + 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Dimension Line
+            const dimY = measureY - 30;
+            ctx.beginPath();
+            ctx.strokeStyle = colDim;
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(leftFlankX, dimY);
+            ctx.lineTo(rightFlankX, dimY);
+            ctx.stroke();
+            
+            // Arrows
+            ctx.fillStyle = colDim;
+            ctx.beginPath();
+            ctx.moveTo(leftFlankX, dimY);
+            ctx.lineTo(leftFlankX + 8, dimY - 3);
+            ctx.lineTo(leftFlankX + 8, dimY + 3);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(rightFlankX, dimY);
+            ctx.lineTo(rightFlankX - 8, dimY - 3);
+            ctx.lineTo(rightFlankX - 8, dimY + 3);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = colStroke;
+            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`K = ${ui.inputs.revK.value}`, (leftFlankX + rightFlankX) / 2, dimY - 10);
+
+            // Teeth span indication
+            ctx.fillStyle = colStroke;
+            ctx.font = 'italic 10px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            const spanTextY = cy + dedendum + 25;
+            
+            // Bracket
+            ctx.beginPath();
+            ctx.strokeStyle = colStroke;
+            ctx.lineWidth = 1;
+            ctx.moveTo(leftFlankX, spanTextY - 5);
+            ctx.lineTo(leftFlankX, spanTextY);
+            ctx.lineTo(rightFlankX, spanTextY);
+            ctx.lineTo(rightFlankX, spanTextY - 5);
+            ctx.stroke();
+
+            ctx.fillText(`${teethToSpan} Dientes`, (leftFlankX + rightFlankX) / 2, spanTextY + 12);
+        }
+
+        function calculate() {
+            if (state.activeTab === 'reverse') {
+                calculateReverse();
+                // Mk is calc by its own inputs, called on change
+                return;
+            }
+            state.val = parseFloat(ui.inputs.module.value) || 0;
+            state.z = parseInt(ui.inputs.teeth.value) || 0;
+            state.beta = parseFloat(ui.inputs.angle.value) || 0;
+            state.factorH = parseFloat(ui.inputs.system.value);
+            state.shaftD = parseFloat(ui.inputs.shaftDia.value) || 0;
+            performCalculationValues();
+        }
+
+        function performCalculationValues() {
+            if (state.val <= 0 || state.z <= 0) return;
+            let Dp, De, H_total, Addendum, Dedendum, Pc, S, Lead;
+            let Z_virtual = state.z;
+            let helixRad = (state.beta * Math.PI) / 180;
+
+            if (state.units === 'metric') {
+                let M = state.val;
+                let Mt = M; 
+                if (state.mode === 'helicoidal') {
+                    Mt = M / Math.cos(helixRad);
+                    Z_virtual = state.z / Math.pow(Math.cos(helixRad), 3);
+                }
+                Dp = Mt * state.z;
+                H_total = state.factorH * M; 
+                Addendum = M;
+                Dedendum = H_total - Addendum;
+                De = Dp + (2 * M);
+                Pc = Math.PI * Mt;
+                S = Pc / 2;
+                if (state.mode === 'helicoidal' && state.beta > 0) Lead = Math.PI * Dp * (1 / Math.tan(helixRad));
+                else Lead = 0;
+            } else {
+                let Pd = state.val; 
+                let Pdt = Pd; 
+                if (state.mode === 'helicoidal') {
+                    Pdt = Pd * Math.cos(helixRad); 
+                    Z_virtual = state.z / Math.pow(Math.cos(helixRad), 3);
+                }
+                Dp = state.z / Pdt;
+                Addendum = 1 / Pd;
+                H_total = state.factorH / Pd;
+                Dedendum = H_total - Addendum;
+                De = Dp + (2 / Pd); 
+                Pc = Math.PI / Pdt;
+                S = Pc / 2;
+                if (state.mode === 'helicoidal' && state.beta > 0) Lead = Math.PI * Dp * (1 / Math.tan(helixRad));
+                else Lead = 0;
+            }
+
+            let Di = De - (2 * H_total);
+            const keySpec = findKeywaySpec(state.shaftD);
+            state.keySpec = keySpec;
+            
+            let dispB = keySpec.b;
+            let dispH = keySpec.h;
+            let dispT2 = keySpec.t2;
+            let suffix = ' mm';
+            
+            if (state.units === 'imperial') {
+                dispB = keySpec.b.toFixed(4);
+                dispH = keySpec.h.toFixed(4);
+                dispT2 = keySpec.t2.toFixed(3);
+                suffix = ' in';
+            }
+
+            ui.outputs.outKeyDim.textContent = `${dispB} x ${dispH} ${state.units === 'imperial' ? 'in' : ''}`;
+            ui.outputs.outKeyT2.textContent = dispT2 + suffix;
+
+            const holeMaxRad = (state.shaftD / 2); 
+            let keywayMaxRad = holeMaxRad;
+            keywayMaxRad += keySpec.t2; 
+            
+            const rootRad = Di / 2;
+            if (keywayMaxRad >= rootRad * 0.9) ui.outputs.shaftWarning.classList.remove('hidden');
+            else ui.outputs.shaftWarning.classList.add('hidden');
+
+            state.calc = { Dp, De, Dedendum, H_total, Addendum, Di };
+
+            const cutter = getCutter(Z_virtual);
+            const turns = Math.floor(40 / state.z);
+            const remainder = (40 / state.z) - turns;
+            let indexingText = `40/${state.z}`;
+            const txtTurns = { es: "vts", en: "turns", de: "Umdr" };
+            if (remainder === 0) indexingText = `${turns} ${txtTurns[currentLang]}`;
+            else indexingText = `${turns} + ${(remainder).toFixed(3)}`;
+
+            const dec = state.units === 'metric' ? 2 : 4; 
+            const unitSuffix = state.units === 'metric' ? ' mm' : ' in';
+
+            ui.outputs.dp.textContent = Dp.toFixed(dec);
+            ui.outputs.de.textContent = De.toFixed(dec);
+            ui.outputs.h.textContent = H_total.toFixed(dec + 1) + unitSuffix;
+            ui.outputs.cutter.textContent = "#" + cutter.id;
+            ui.outputs.range.textContent = cutter.desc; 
+            ui.outputs.indexing.textContent = indexingText; 
+            ui.outputs.tabPc.textContent = Pc.toFixed(dec+1);
+            ui.outputs.tabS.textContent = S.toFixed(dec+1);
+            ui.outputs.tabAdd.textContent = Addendum.toFixed(dec+1);
+            ui.outputs.tabDed.textContent = Dedendum.toFixed(dec+1);
+            ui.outputs.tabRoot.textContent = Di.toFixed(dec+1);
+            ui.outputs.noteDepth.textContent = H_total.toFixed(dec+1);
+
+            if (state.mode === 'helicoidal') {
+                ui.outputs.lead.textContent = Lead.toFixed(dec) + unitSuffix; 
+                ui.outputs.noteAngle.textContent = state.beta;
+                ui.outputs.noteZv.textContent = Z_virtual.toFixed(1);
+            }
+            drawGear(Dp, De, Di, state.z);
+        }
+
+        function drawGear(Dp, De, Di, Z) {
+            const canvas = ui.canvas;
+            const ctx = canvas.getContext('2d');
+            const style = getComputedStyle(document.body);
+            const colStroke = style.getPropertyValue('--gear-stroke').trim();
+            const colFill = style.getPropertyValue('--gear-fill').trim();
+            const colDim = style.getPropertyValue('--dim-line').trim();
+            const colPrimary = style.getPropertyValue('--brand-primary').trim();
+            
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+            ctx.clearRect(0, 0, rect.width, rect.height);
+            
+            const scale = (Math.min(rect.width, rect.height) * 0.4) / (De / 2);
+            document.getElementById('scaleInfo').textContent = `Zoom: ${(scale).toFixed(2)}x`;
+
+            const rP = (Dp / 2) * scale;
+            const rE = (De / 2) * scale;
+            const rI = (Di / 2) * scale;
+
+            let rShaftReal = state.shaftD / 2;
+            let kwReal = state.keySpec.b;
+            let t2Real = state.keySpec.t2;
+
+            const rShaft = rShaftReal * scale;
+            const kw = kwReal * scale;
+            const kh_into_hub = t2Real * scale;
+
+            // Crosshair
+            ctx.beginPath();
+            ctx.strokeStyle = colDim;
+            ctx.lineWidth = 1;
+            const markSize = 10;
+            ctx.moveTo(cx - markSize, cy); ctx.lineTo(cx + markSize, cy);
+            ctx.moveTo(cx, cy - markSize); ctx.lineTo(cx, cy + markSize);
+            ctx.stroke();
+
+            // Pitch Circle
+            ctx.beginPath();
+            ctx.strokeStyle = colPrimary;
+            ctx.setLineDash([10, 5]);
+            ctx.lineWidth = 1;
+            ctx.arc(cx, cy, rP, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Gear Profile
+            ctx.beginPath();
+            ctx.fillStyle = colFill;
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = colStroke;
+            const step = (Math.PI * 2) / Z;
+            for (let i = 0; i < Z; i++) {
+                const angle = i * step;
+                const halfPitch = step / 2;
+                const halfTooth = halfPitch / 2; 
+                const angRootHalf = halfTooth * 1.3; 
+                const angTipHalf = halfTooth * 0.7;
+                const a1 = angle - halfPitch; 
+                const a2 = angle - angRootHalf; 
+                const a3 = angle - angTipHalf; 
+                const a4 = angle + angTipHalf; 
+                const a5 = angle + angRootHalf; 
+                
+                ctx.arc(cx, cy, rI, a1, a2); 
+                ctx.lineTo(cx + Math.cos(a3) * rE, cy + Math.sin(a3) * rE);
+                ctx.arc(cx, cy, rE, a3, a4);
+                ctx.lineTo(cx + Math.cos(a5) * rI, cy + Math.sin(a5) * rI);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Shaft Hole
+            ctx.beginPath();
+            ctx.fillStyle = style.getPropertyValue('--bg-body').trim(); 
+            ctx.strokeStyle = colStroke;
+            ctx.lineWidth = 1.5;
+            ctx.arc(cx, cy, rShaft, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Keyway
+            ctx.beginPath();
+            ctx.fillStyle = style.getPropertyValue('--bg-body').trim();
+            ctx.rect(cx - kw/2, cy - rShaft - kh_into_hub, kw, kh_into_hub + 2); 
+            ctx.fill();
+            
+            // Keyway Border
+            ctx.beginPath();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = colStroke;
+            ctx.moveTo(cx - kw/2, cy - rShaft + 2);
+            ctx.lineTo(cx - kw/2, cy - rShaft - kh_into_hub);
+            ctx.lineTo(cx + kw/2, cy - rShaft - kh_into_hub);
+            ctx.lineTo(cx + kw/2, cy - rShaft + 2);
+            ctx.stroke();
+        }
+
+        function exportDXF() {
+            if (state.calc.Dp === 0) return;
+            const { Dp, De, Di } = state.calc;
+            const Z = state.z;
+            const rP = Dp / 2;
+            const rE = De / 2;
+            const rI = Di / 2;
+            let rShaft = state.shaftD / 2;
+            let kw = state.keySpec.b;
+            let t2 = state.keySpec.t2;
+            
+            const nl = '\r\n';
+            let dxf = `0${nl}SECTION${nl}2${nl}HEADER${nl}9${nl}$ACADVER${nl}1${nl}AC1009${nl}`;
+            const unitsCode = state.units === 'metric' ? '4' : '1';
+            dxf += `9${nl}$INSUNITS${nl}70${nl}${unitsCode}${nl}0${nl}ENDSEC${nl}`;
+            dxf += `0${nl}SECTION${nl}2${nl}ENTITIES${nl}`;
+
+            const step = (Math.PI * 2) / Z;
+            for (let i = 0; i < Z; i++) {
+                const angle = i * step;
+                const halfPitch = step / 2;
+                const halfTooth = halfPitch / 2; 
+                const angRootHalf = halfTooth * 1.3; 
+                const angTipHalf = halfTooth * 0.7;
+                const a1 = angle - halfPitch; 
+                const a2 = angle - angRootHalf; 
+                const a3 = angle - angTipHalf; 
+                const a4 = angle + angTipHalf; 
+                const a5 = angle + angRootHalf; 
+                const a6 = angle + halfPitch;
+                const toDeg = (rad) => {
+                    let d = (rad * 180 / Math.PI) % 360;
+                    if (d < 0) d += 360;
+                    return d;
+                };
+                dxf += dxfArc(0, 0, rI, toDeg(a1), toDeg(a2));
+                dxf += dxfLine(Math.cos(a2)*rI, Math.sin(a2)*rI, Math.cos(a3)*rE, Math.sin(a3)*rE);
+                dxf += dxfArc(0, 0, rE, toDeg(a3), toDeg(a4));
+                dxf += dxfLine(Math.cos(a4)*rE, Math.sin(a4)*rE, Math.cos(a5)*rI, Math.sin(a5)*rI);
+                dxf += dxfArc(0, 0, rI, toDeg(a5), toDeg(a6));
+            }
+
+            if (kw < rShaft * 2) {
+                const intersectY = Math.sqrt(Math.max(0, rShaft*rShaft - (kw/2)*(kw/2)));
+                const angIntersect = Math.atan2(intersectY, kw/2); 
+                const toDeg = (rad) => (rad * 180 / Math.PI);
+                const startAng = toDeg(Math.PI - angIntersect); 
+                const endAng = toDeg(angIntersect); 
+                dxf += dxfArc(0, 0, rShaft, startAng, endAng);
+
+                const topY = rShaft + t2;
+                dxf += dxfLine(kw/2, intersectY, kw/2, topY);
+                dxf += dxfLine(kw/2, topY, -kw/2, topY);
+                dxf += dxfLine(-kw/2, topY, -kw/2, intersectY);
+            } else {
+                 dxf += dxfCircle(0, 0, rShaft);
+            }
+            
+            dxf += `0${nl}ENDSEC${nl}0${nl}EOF${nl}`;
+            const blob = new Blob([dxf], { type: 'application/dxf' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gear_m${state.val}_z${state.z}_shaft${state.shaftD}.dxf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function dxfLine(x1, y1, x2, y2) {
+            const nl = '\r\n';
+            return `0${nl}LINE${nl}8${nl}0${nl}10${nl}${x1.toFixed(6)}${nl}20${nl}${y1.toFixed(6)}${nl}30${nl}0.0${nl}11${nl}${x2.toFixed(6)}${nl}21${nl}${y2.toFixed(6)}${nl}31${nl}0.0${nl}`;
+        }
+
+        function dxfArc(cx, cy, r, angStart, angEnd) {
+            const nl = '\r\n';
+            let s = angStart % 360; if (s < 0) s += 360;
+            let e = angEnd % 360; if (e < 0) e += 360;
+            return `0${nl}ARC${nl}8${nl}0${nl}10${nl}${cx.toFixed(6)}${nl}20${nl}${cy.toFixed(6)}${nl}30${nl}0.0${nl}40${nl}${r.toFixed(6)}${nl}50${nl}${s.toFixed(6)}${nl}51${nl}${e.toFixed(6)}${nl}`;
+        }
+        
+        function dxfCircle(cx, cy, r) {
+            const nl = '\r\n';
+            return `0${nl}CIRCLE${nl}8${nl}0${nl}10${nl}${cx.toFixed(6)}${nl}20${nl}${cy.toFixed(6)}${nl}30${nl}0.0${nl}40${nl}${r.toFixed(6)}${nl}`;
+        }
+
+        // MODAL FUNCTIONS
+        function openKModal() {
+            ui.kModal.showModal();
+            calculateMk(); // Trigger redraw on modal canvas
+        }
+
+        function closeKModal() {
+            ui.kModal.close();
+        }
+
+        // Event listeners for modal
+        ui.kModal.addEventListener('click', (event) => {
+            if (event.target === ui.kModal) {
+                closeKModal();
+            }
+        });
+
+        ui.inputs.module.addEventListener('input', calculate);
+        ui.inputs.teeth.addEventListener('input', calculate);
+        ui.inputs.angle.addEventListener('input', function() {
+            if(state.activeTab === 'reverse') calculateReverse();
+            else calculate();
+        });
+        ui.inputs.system.addEventListener('change', calculate);
+        ui.inputs.shaftDia.addEventListener('input', calculate);
+        ui.inputs.revDe.addEventListener('input', calculateReverse);
+        ui.inputs.revZ.addEventListener('input', calculateReverse);
+
+        // MK EVENTS
+        ui.inputs.revK.addEventListener('input', calculateMk);
+        ui.inputs.revZK.addEventListener('input', calculateMk);
+        ui.inputs.revAlpha.addEventListener('change', calculateMk);
+
+        new ResizeObserver(calculate).observe(ui.canvas.parentElement);
+        // Observer for modal resize to redraw
+        new ResizeObserver(() => {
+            if (ui.kModal.open) calculateMk();
+        }).observe(ui.canvasKModal.parentElement);
+
+        changeLang('es');
+    </script>
+</body>
+</html>
