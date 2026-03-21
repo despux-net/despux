@@ -69,6 +69,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-pdf').addEventListener('click', descargarPDF);
 });
 
+let calculoActual = null; // Guardará estado de cálculo para re-renderizado
+
 // ===============================================
 // ALGORITMO: FIRST FIT DECREASING (BSP TREE)
 // ===============================================
@@ -130,7 +132,6 @@ function getColorForLabel(label) {
     for (let i = 0; i < label.length; i++) {
         hash = label.charCodeAt(i) + ((hash << 5) - hash);
     }
-    // HSL: Matiz basado en Hash, Saturación alta, Brillo pastel
     const h = Math.abs(hash) % 360;
     return `hsl(${h}, 70%, 80%)`;
 }
@@ -138,7 +139,6 @@ function getColorForLabel(label) {
 function optimizar() {
     const kerf = parseFloat(document.getElementById('kerf').value) || 0;
     
-    // Obtener Modo Real (1D vs 2D)
     const mode = document.querySelector('input[name="cut-mode"]:checked').value;
     const is1D = (mode === '1D');
     const allowRotation = is1D ? false : document.getElementById('allow-rotation').checked;
@@ -223,7 +223,6 @@ function optimizar() {
 
     let missingBlocks = blocks.filter(b => !b.fit).length;
 
-    // Calcular Sobrantes
     usedStocks.forEach(stock => {
         let empties = stock.packer.getEmptyNodes();
         empties.forEach(en => {
@@ -236,12 +235,11 @@ function optimizar() {
         });
     });
 
-    // Reporte
     let unitsToBuy = usedStocks.length;
     let originalStockW = is1D ? 0 : parseFloat(document.querySelector('.input-W').value) || 0;
     
     let totalPurchasedArea = unitsToBuy * (stockL * (is1D ? 1 : originalStockW));
-    let customAreaCut = is1D ? totalAreaCuted/100 : totalAreaCuted; // Normalizando la matemática en 1D
+    let customAreaCut = is1D ? totalAreaCuted/100 : totalAreaCuted; 
     let percWaste = unitsToBuy > 0 ? (((totalPurchasedArea - customAreaCut) / totalPurchasedArea) * 100) : 0;
 
     document.getElementById('stat-buy').innerText = unitsToBuy;
@@ -266,7 +264,19 @@ function optimizar() {
     document.getElementById('stats-container').classList.remove('hidden');
     document.getElementById('btn-pdf').classList.remove('hidden');
 
-    // Render Canvas
+    calculoActual = {
+        usedStocks, missingBlocks, unitsToBuy, stockL, originalStockW, is1D, kerf
+    };
+
+    renderPlanos(false);
+}
+
+// Render modular para alternar BW modo exportación
+function renderPlanos(isBwMode = false) {
+    if (!calculoActual) return;
+    const { usedStocks, missingBlocks, unitsToBuy, stockL, originalStockW, is1D, kerf } = calculoActual;
+    const effStockW = is1D ? 100 : (originalStockW + kerf);
+
     const renderContainer = document.getElementById('render-container');
     renderContainer.innerHTML = ''; 
 
@@ -283,11 +293,11 @@ function optimizar() {
         panelDiv.className = 'cut-plan-box';
         
         const header = document.createElement('h3');
-        header.className = 'font-bold text-gray-700 dark:text-gray-300 mb-2 border-b border-gray-200 dark:border-slate-700 pb-1';
+        header.className = 'font-bold mb-2 border-b pb-1 ' + (isBwMode ? 'text-black border-black' : 'text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700');
         header.innerText = `[${is1D ? 'Tubo' : 'Lámina'} Comercial #${stock.index}] (L: ${stockL} ${is1D ? '' : 'x W: ' + originalStockW})`;
         
         const canvas = document.createElement('canvas');
-        canvas.className = 'w-full shadow-sm rounded overflow-hidden border border-gray-300 dark:border-slate-600 bg-gray-200 dark:bg-slate-700'; 
+        canvas.className = 'w-full shadow-sm rounded overflow-hidden border ' + (isBwMode ? 'border-gray-800 bg-white' : 'border-gray-300 dark:border-slate-600 bg-gray-200 dark:bg-slate-700'); 
         
         panelDiv.appendChild(header);
         panelDiv.appendChild(canvas);
@@ -298,13 +308,15 @@ function optimizar() {
         canvas.width = stockL * scaleBy;
         canvas.height = is1D ? (120 * scaleBy) : (effStockW * scaleBy);
         
-        // Pintar el fondo del tubo o lamina (Gris metálico o madera)
-        ctx.fillStyle = is1D ? '#d1d5db' : '#e5e7eb'; // Tailwind gray-300 o 200
+        // Pintar fondo del tubo o lámina
+        ctx.fillStyle = isBwMode ? '#ffffff' : (is1D ? '#d1d5db' : '#e5e7eb'); 
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Pintar Kerf implícito (Como líneas de corte / aserrín de fondo debajo de las fichas)
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.2)'; // Tailwind bg-red-500 opacidad baja
-        ctx.fillRect(0,0, canvas.width, canvas.height);
+        // Sombrado del disco de corte (solo en UI, transparente en PDF)
+        if (!isBwMode) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+        }
 
         stock.parts.forEach(part => {
             let cx = part.fit.x * scaleBy;
@@ -312,54 +324,61 @@ function optimizar() {
             let cw = part.rotated ? part.realH * scaleBy : part.realW * scaleBy;
             let ch = part.rotated ? part.realW * scaleBy : part.realH * scaleBy;
 
-            // Ficha (Corte en color)
-            ctx.fillStyle = part.color; 
+            // Ficha
+            ctx.fillStyle = isBwMode ? '#ffffff' : part.color; 
             ctx.fillRect(cx, cy, cw, ch);
             
-            // Borde Ficha
-            ctx.strokeStyle = '#334155'; // dark slate
+            // Borde Ficha (Negro en PDF)
+            ctx.strokeStyle = isBwMode ? '#000000' : '#334155'; 
             ctx.lineWidth = Math.max(1, 1.5 * scaleBy);
             ctx.strokeRect(cx, cy, cw, ch);
 
-            // Texto Centro Ficha
-            ctx.fillStyle = '#0f172a'; // Casi negro
+            // Texto Centro
+            ctx.fillStyle = isBwMode ? '#000000' : '#0f172a';
             ctx.font = `bold ${Math.max(11, 14*scaleBy)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
             if (is1D) {
-                // Tuberías: Etiqueta y longitud en una sola línea combinada
                 let combinedTxt = `${part.lbl} (${part.realW}mm)`;
                 ctx.fillText(combinedTxt, cx + cw/2, cy + ch/2);
             } else {
                 let txt = `${part.lbl}`;
                 let dimTxt = part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}x${part.realH}`;
                 
-                // Paneles 2D: Separación vertical constante para que quepa bien
                 ctx.fillText(txt, cx + cw/2, cy + ch/2 - 8);
                 if(ch > (25*scaleBy)) {
                     ctx.font = `bold ${Math.max(10, 12*scaleBy)}px sans-serif`;
-                    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                    ctx.fillStyle = isBwMode ? '#000000' : 'rgba(0,0,0,0.7)';
                     ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + 8);
                 }
             }
         });
 
-        // Dibujar explícitamente el sobrante grande en verde si es 1D o muy obvio
+        // Sobrante en Verde (Gris rayado en PDF BW)
         if(is1D) {
             let ultimoBordeX = 0;
             stock.parts.forEach(p => { ultimoBordeX = Math.max(ultimoBordeX, p.fit.x + p.w); });
             if(stockL - ultimoBordeX > 10) {
                 let sx = ultimoBordeX * scaleBy;
                 let sw = (stockL - ultimoBordeX) * scaleBy;
-                ctx.fillStyle = 'rgba(74, 222, 128, 0.6)'; // Verde claro opaco
-                ctx.fillRect(sx, 0, sw, canvas.height);
                 
-                // Rayado encima
-                ctx.strokeStyle = 'rgba(21, 128, 61, 0.8)'; // Borde verde
-                ctx.strokeRect(sx, 0, sw, canvas.height);
+                if (isBwMode) {
+                    // PDF BW
+                    ctx.fillStyle = 'rgba(0,0,0,0.05)'; 
+                    ctx.fillRect(sx, 0, sw, canvas.height);
+                    ctx.strokeStyle = '#000';
+                    ctx.strokeRect(sx, 0, sw, canvas.height);
+                    ctx.fillStyle = '#000';
+                } else {
+                    // UI Color
+                    ctx.fillStyle = 'rgba(74, 222, 128, 0.6)'; 
+                    ctx.fillRect(sx, 0, sw, canvas.height);
+                    ctx.strokeStyle = 'rgba(21, 128, 61, 0.8)'; 
+                    ctx.strokeRect(sx, 0, sw, canvas.height);
+                    ctx.fillStyle = '#064e3b';
+                }
 
-                ctx.fillStyle = '#064e3b';
                 ctx.font = `bold ${Math.max(12, 16*scaleBy)}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.fillText(`Restante: ${(stockL - ultimoBordeX).toFixed(1)}mm`, sx + sw/2, canvas.height/2);
@@ -369,13 +388,34 @@ function optimizar() {
 }
 
 function descargarPDF() {
+    const htmlElement = document.documentElement;
+    const wasDark = htmlElement.classList.contains('dark');
+    
+    // Forzar modo claro global para que textos del div no salgan transparentes/blancos en el PDF
+    if (wasDark) htmlElement.classList.remove('dark');
+
+    // Cambiar motor Canvas a B&W
+    renderPlanos(true);
+
     const element = document.getElementById('export-area');
+    const btnPdf = document.getElementById('btn-pdf');
+    btnPdf.style.display = 'none'; // Ocultar boton para que no salga impreso
+
     const opt = {
       margin:       10,
-      filename:     'Reporte-Corte-DESPUX.pdf',
+      filename:     'Ingenieria-Reporte-Corte-DESPUX.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-    html2pdf().set(opt).from(element).save();
+
+    // Darle 100ms a la pantalla para renderizar las líneas blancas y negras antes de "tomar la foto"
+    setTimeout(() => {
+        html2pdf().set(opt).from(element).save().then(() => {
+            // Restaurar configuración interactiva normal y colores
+            btnPdf.style.display = 'flex';
+            if (wasDark) htmlElement.classList.add('dark');
+            renderPlanos(false);
+        });
+    }, 100);
 }
