@@ -1,35 +1,42 @@
 import { supabase, getProyectos, enviarMensajeContacto, getSession, signIn, signOut, getMensajesContacto, registrarUsoHerramienta } from './supabase-config.js';
 
-// --- GESTIÓN DE VISTAS (SPA ROUTER) ---
+// --- GESTIÓN DE VISTAS (SCROLL) ---
 window.goHome = (e) => {
     if(e) e.preventDefault();
-    document.body.className = ''; 
-    updateNavButtons('');
+    document.getElementById('public-views').style.display = 'flex';
+    document.getElementById('admin-view').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.goWorks = () => {
-    document.body.className = 'show-works';
-    updateNavButtons('btn-works');
+    document.getElementById('public-views').style.display = 'flex';
+    document.getElementById('admin-view').style.display = 'none';
+    const section = document.getElementById('works-section');
+    if(section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     cargarProyectos();
 };
 
-window.goDashboard = () => {
-    document.body.className = 'show-dashboard';
-    updateNavButtons('btn-dash');
-    checkSessionAndLoadDashboard();
-};
-
-function updateNavButtons(activeId) {
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active-link'));
-    if(activeId) {
-        const btn = document.getElementById(activeId);
-        if(btn) btn.classList.add('active-link');
+window.toggleDashboard = () => {
+    const adminView = document.getElementById('admin-view');
+    const publicView = document.getElementById('public-views');
+    
+    if(adminView.style.display === 'block') {
+        // Cerrar panel Admin
+        adminView.style.display = 'none';
+        publicView.style.display = 'flex';
+    } else {
+        // Abrir panel Admin ocultando lo público
+        adminView.style.display = 'block';
+        publicView.style.display = 'none';
+        checkSessionAndLoadDashboard();
+        window.scrollTo(0,0);
     }
-}
+};
 
 // --- HERRAMIENTAS (ANALYTICS) ---
 window.trackTool = async (toolName) => {
-    // Registra silenciosamente el click a la herramienta en Supabase
     await registrarUsoHerramienta(toolName);
 };
 
@@ -41,17 +48,15 @@ async function cargarProyectos() {
     const container = document.getElementById('projects-container');
     const template = document.getElementById('skeleton-template').innerHTML;
     
-    // 1. Mostrar Skeletons (por ej. 2)
+    // Mostramos Skeletons
     container.innerHTML = template + template;
     
-    // 2. Traer datos de Supabase
+    // Obtenemos de Supabase
     const proyectos = await getProyectos();
-    
-    // 3. Renderizar resultados
     container.innerHTML = '';
     
     if(!proyectos || proyectos.length === 0) {
-        container.innerHTML = '<p style="text-align:center;color:#777">No hay proyectos publicados por el momento.</p>';
+        container.innerHTML = '<p style="text-align:center;color:#777">No hay proyectos publicados por el momento en Supabase.</p>';
         return;
     }
 
@@ -77,6 +82,9 @@ async function cargarProyectos() {
     proyectosLoaded = true;
 }
 
+// Inicializar proyectos silenciosamente
+setTimeout(cargarProyectos, 500);
+
 // --- FORMULARIO DE CONTACTO ---
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -85,19 +93,20 @@ document.getElementById('contact-form').addEventListener('submit', async (e) => 
     const originalText = btn.innerText;
     
     try {
-        btn.innerText = 'ENVIANDO...';
+        btn.innerText = 'ENVIANDO A SUPABASE...';
         btn.disabled = true;
         
+        // Enviar efectivamente a la tabla 'contactos' de Supabase
         await enviarMensajeContacto(
             fd.get('name'), 
             fd.get('email'), 
             fd.get('message')
         );
         
-        alert('Mensaje enviado exitosamente. Nos pondremos en contacto pronto.');
+        alert('¡Su mensaje ha sido enviado correctamente y guardado en nuestra base de datos segura (Supabase)! Nos pondremos en contacto pronto.');
         e.target.reset();
     } catch(err) {
-        alert('Hubo un error al enviar el mensaje. Intente nuevamente.');
+        alert('Hubo un error al guardar en la base de datos. Intente nuevamente.');
     } finally {
         btn.innerText = originalText;
         btn.disabled = false;
@@ -127,13 +136,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = e.target.querySelector('button');
     btn.disabled = true;
-    btn.innerText = 'Verificando...';
+    btn.innerText = 'Verificando Auth...';
     try {
         await signIn(e.target.email.value, e.target.password.value);
         e.target.reset();
         checkSessionAndLoadDashboard();
     } catch(err) {
-        alert('Credenciales inválidas o no autorizadas.');
+        alert('Contraseña o correo inválido en Supabase Auth.');
     } finally {
         btn.disabled = false;
         btn.innerText = 'Ingresar';
@@ -147,13 +156,13 @@ window.logout = async () => {
 
 async function cargarMensajes() {
     const container = document.getElementById('messages-list');
-    container.innerHTML = '<p style="color:var(--text-muted)">Cargando mensajes de Supabase...</p>';
+    container.innerHTML = '<p style="color:var(--text-muted)">Cargando mensajes desde Supabase DB...</p>';
     
     try {
         const msgs = await getMensajesContacto();
         container.innerHTML = '';
         if(!msgs || msgs.length === 0) {
-            container.innerHTML = '<p style="color:var(--text-muted)">No hay mensajes en la bandeja de entrada.</p>';
+            container.innerHTML = '<p style="color:var(--text-muted)">No hay mensajes en la tabla de Contactos.</p>';
             return;
         }
         msgs.forEach(m => {
@@ -169,7 +178,7 @@ async function cargarMensajes() {
             `;
         });
     } catch(err) {
-        container.innerHTML = '<p style="color:#ef4444">Error de permisos o error de red al cargar mensajes.</p>';
+        container.innerHTML = '<p style="color:#ef4444">Error de permisos (RLS) o error de red al cargar mensajes.</p>';
     }
 }
 
@@ -180,9 +189,9 @@ const translations = {
         nav_calc: "Calculadora de Tuberías",
         nav_gears: "Cálculo de Engranaje",
         nav_cad: "CAD VIEWER",
-        nav_works: "TRABAJOS",
+        nav_works: "TRABAJOS Y PROYECTOS",
         nav_dash: "ADMIN",
-        hero_title: "Proyectos de Ingeniería <br>página Web en construcción.",
+        hero_title: "Proyectos de Ingeniería",
         hero_desc: "Simplificamos procesos técnicos con precisión. Acceda a nuestra suite de herramientas desde el menú superior.",
         contact_title: "Contacto Directo",
         contact_desc: "¿Tiene alguna consulta técnica, sugerencia sobre nuestras herramientas o requiere asistencia personalizada? Utilice el formulario para enviar un mensaje directo a nuestra administración.",
@@ -199,9 +208,9 @@ const translations = {
         nav_calc: "Pipe Calculator",
         nav_gears: "Gear Calculation",
         nav_cad: "CAD Viewer",
-        nav_works: "PROJECTS",
+        nav_works: "WORKS",
         nav_dash: "ADMIN",
-        hero_title: "Engineering Projects <br>Website Under Construction.",
+        hero_title: "Engineering Projects",
         hero_desc: "We simplify technical processes with precision. Access our suite of tools from the top menu.",
         contact_title: "Direct Contact",
         contact_desc: "Do you have a technical query, suggestion about our tools, or require personalized assistance? Use the form to send a direct message to our administration.",
@@ -220,7 +229,7 @@ const translations = {
         nav_cad: "CAD-Betrachter",
         nav_works: "PROJEKTE",
         nav_dash: "ADMIN",
-        hero_title: "Ingenieurprojekte <br>Webseite im Aufbau.",
+        hero_title: "Ingenieurprojekte",
         hero_desc: "Wir vereinfachen technische Prozesse mit Präzision. Greifen Sie über das obere Menü auf unsere Tool-Suite zu.",
         contact_title: "Direkter Kontakt",
         contact_desc: "Haben Sie eine technische Frage, einen Vorschlag zu unseren Tools oder benötigen Sie persönliche Unterstützung? Nutzen Sie das Formular, um eine direkte Nachricht.",
@@ -238,7 +247,7 @@ window.setLanguage = (lang) => {
     const elements = document.querySelectorAll('[data-i18n]');
     elements.forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (translations[lang][key]) {
+        if (translations[lang] && translations[lang][key]) {
             el.innerHTML = translations[lang][key];
         }
     });
@@ -246,7 +255,7 @@ window.setLanguage = (lang) => {
     const placeholders = document.querySelectorAll('[data-i18n-placeholder]');
     placeholders.forEach(el => {
         const key = el.getAttribute('data-i18n-placeholder');
-        if (translations[lang][key]) {
+        if (translations[lang] && translations[lang][key]) {
             el.placeholder = translations[lang][key];
         }
     });
@@ -259,7 +268,7 @@ window.setLanguage = (lang) => {
     });
 };
 
-// --- ANIMACIÓN CANVAS RED (Background) ---
+// --- ANIMACIÓN CANVAS RED ---
 const canvas = document.getElementById('canvas-network');
 const ctx = canvas.getContext('2d');
 let width, height;
@@ -351,11 +360,3 @@ window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
 resize();
 initCanvas();
 animateCanvas();
-
-// --- INICIALIZACIÓN ---
-const currentClass = document.body.className;
-if (currentClass === 'show-dashboard') {
-    checkSessionAndLoadDashboard();
-} else if (currentClass === 'show-works') {
-    cargarProyectos();
-}
