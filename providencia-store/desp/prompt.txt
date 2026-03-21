@@ -1,0 +1,9 @@
+CREA UNA DAMISELA AL ESTILO PINTURA RENACENTISTA CON UN TOQUE CATOLICO, PERO CON LIMITES DE COLORES PARA UNA PALETA DE COLORES ESTANDAR DE UN WOVEN PATCH, FONDO PAISAJE SIMPLE
+
+elimina el patch de la gorra, y lo reemplazas con la imagen del archivo llamado escudo1, el marco amarillo en escudo1 simlara el bordado dorado, que todo el escudo se vea estilo realista woven patch. la palabra providencia tambien estara en estilo woven patch y su fondo negro en woven patch mezclado con el fondo general dentro del escudo. la imagen escudo1 mide 65mm de alto y 60mm de ancho, debe verse de tal forma que se adapte en funcion de una gorra trucker. elimina la etiqueta que aparece en la visera de la gorra.  alta definicion 8k.
+
+gira la camra para tener una vista de 45 grados desde un poco arriba, manten los colores de la gorra, alto detalle texturas, 8k resolucion
+
+crea una mujer con bastante detalles en el cabello, ojos y piel, , una chica joven de 20 anios haciendose una selfie dentro de un carro usando las gorras mostrada en las imagenes, mucho detalle 8k, LA CHICA QUE SE VEA REAL Y NO PLASTICA,LA CABEZA GIRADA 20 GRADOS CON RESPECTO A LA CAMARA, MIRANDO A OTRO LADO
+
+CREA UN ESCUDO AL ESTILO PINTURA RENACENTISTA CON UN TOQUE CATOLICO, PERO CON LIMITES DE COLORES PARA UNA PALETA DE COLORES ESTANDAR DE UN WOVEN PATCH, FONDO PAISAJE SIMPLE Y COLORES EN GENERAL VIVOS

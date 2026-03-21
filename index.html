@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DESPUX | Soluciones de Ingeniería</title>
+    <!-- Hoja de estilos extraída limpia -->
+    <link rel="stylesheet" href="./css/main.css">
+</head>
+<body>
+    <canvas id="canvas-network"></canvas>
+
+    <header>
+        <div class="header-left">
+            <a href="#" onclick="goHome(event)" class="brand">DESPUX <span>ENGINEERING</span></a>
+        </div>
+        
+        <div class="header-right">
+            <nav>
+                <details>
+                    <summary data-i18n="nav_tools">HERRAMIENTAS</summary>
+                    <div class="dropdown-menu">
+                        <!-- Integración con Firebase / Tracking en onclick -->
+                        <a href="/tuberia/" data-i18n="nav_calc" onclick="trackTool('Calculadora_Tuberias')">Calculadora de Tuberías</a>
+                        <a href="https://www.despux.net/gear" data-i18n="nav_gears" onclick="trackTool('Calculo_Engranaje')">Cálculo de Engranaje</a>
+                        <a href="https://www.despux.net/cad" data-i18n="nav_cad" onclick="trackTool('CAD_Viewer')">CAD VIEWER</a>
+                    </div>
+                </details>
+
+                <button class="nav-btn" id="btn-works" onclick="goWorks()" data-i18n="nav_works">
+                    TRABAJOS
+                </button>
+                <button class="nav-btn" id="btn-dash" onclick="goDashboard()" data-i18n="nav_dash" style="font-size:0.8rem; opacity:0.7;">
+                    ADMIN
+                </button>
+            </nav>
+
+            <div class="lang-selector">
+                <button class="lang-btn active" onclick="setLanguage('es')" title="Español">
+                    <img src="https://flagcdn.com/w40/es.png" alt="Español">
+                </button>
+                <button class="lang-btn" onclick="setLanguage('en')" title="English">
+                    <img src="https://flagcdn.com/w40/gb.png" alt="English">
+                </button>
+                <button class="lang-btn" onclick="setLanguage('de')" title="Deutsch">
+                    <img src="https://flagcdn.com/w40/de.png" alt="Deutsch">
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="main-container">
+
+        <!-- VISTA 1: INICIO (HOME) -->
+        <div class="view-slide" id="view-home">
+            <section class="hero">
+                <h1 data-i18n="hero_title">Proyectos de Ingeniería <br>página Web en construcción.</h1>
+                <p data-i18n="hero_desc">
+                    Simplificamos procesos técnicos con precisión. Acceda a nuestra suite de herramientas desde el menú superior.
+                </p>
+            </section>
+
+            <section class="contact-section">
+                <div class="contact-wrapper">
+                    <div class="contact-info">
+                        <h3 data-i18n="contact_title">Contacto Directo</h3>
+                        <p data-i18n="contact_desc">
+                            ¿Tiene alguna consulta técnica, sugerencia sobre nuestras herramientas o requiere asistencia personalizada? 
+                            Utilice el formulario para enviar un mensaje directo a nuestra administración.
+                        </p>
+                    </div>
+
+                    <div class="form-box">
+                        <form id="contact-form">
+                            <!-- Agregado campo name según DB -->
+                            <input type="text" name="name" data-i18n-placeholder="input_name" placeholder="Su Nombre" required>
+                            <input type="email" name="email" data-i18n-placeholder="input_email" placeholder="Su Correo Electrónico" required>
+                            <textarea name="message" rows="4" data-i18n-placeholder="input_msg" placeholder="Escriba su mensaje..." required></textarea>
+                            <button type="submit" class="btn-submit" data-i18n="btn_send">ENVIAR</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            <footer>
+                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
+                <div class="author-sig" data-i18n="footer_dev">Desarrollado y mantenido por Marcos Despujos.</div>
+            </footer>
+        </div>
+
+        <!-- VISTA 2: TRABAJOS (PORTAFOLIO) -->
+        <div class="view-slide" id="view-works">
+            <div class="works-wrapper" id="projects-container">
+                <!-- Los proyectos se cargarán dinámicamente aquí vía JS -->
+            </div>
+            <footer>
+                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
+            </footer>
+        </div>
+
+        <!-- VISTA 3: DASHBOARD ADMIN -->
+        <div class="view-slide" id="view-dashboard">
+            <div class="dashboard-wrapper">
+                <div class="dashboard-header">
+                    <h2>Panel de Administración</h2>
+                    <button class="btn-submit" id="btn-logout" style="display:none;" onclick="logout()">Cerrar Sesión</button>
+                </div>
+                
+                <!-- Formulario de Login -->
+                <div id="login-container">
+                    <p style="margin-bottom:20px; color:var(--text-muted)">Ingrese sus credenciales para acceder a los mensajes.</p>
+                    <form id="login-form">
+                        <input type="email" name="email" placeholder="Email Admin" required>
+                        <input type="password" name="password" placeholder="Contraseña" required>
+                        <button type="submit" class="btn-submit">Ingresar</button>
+                    </form>
+                </div>
+
+                <!-- Lista de Mensajes (Oculto inicialmente) -->
+                <div id="dashboard-content" style="display:none;">
+                    <h3 style="margin-bottom:20px;">Mensajes de Contacto Recientes</h3>
+                    <div id="messages-list"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Template for Skeleton Screen (Projects) -->
+    <template id="skeleton-template">
+        <article class="project-card skeleton">
+            <div class="project-image sk-img"></div>
+            <div class="project-info">
+                <div class="sk-tag skeleton"></div>
+                <div class="sk-title skeleton"></div>
+                <div class="sk-desc skeleton"></div>
+                <div class="sk-btn skeleton"></div>
+            </div>
+        </article>
+    </template>
+
+    <!-- Archivo JS modular -->
+    <script type="module" src="./js/app.js"></script>
+</body>
+</html>
