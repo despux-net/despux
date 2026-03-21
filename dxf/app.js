@@ -319,20 +319,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ====================================================
-    //  ARC MATH - CORRECT DXF → CANVAS
-    //  DXF angles: degrees, CCW from +X, Y-up
-    //  Canvas: radians, with Y-down flip
-    //  After flip: angle_screen = -angle_dxf
-    //  DXF CCW arc → visually CCW on screen → counterclockwise=true in ctx.arc
+    //  ARC MATH - CORRECTED
+    //  DXF: startAngle → endAngle in degrees, CCW, Y-up
+    //  Canvas: Y-down. Flipping Y preserves visual CCW because:
+    //    DXF point at angle θ → screen at angle -θ
+    //    Arc from θ_start to θ_end CCW in DXF
+    //    = Arc from -θ_start to -θ_end going in DECREASING angle direction in canvas
+    //    = counterclockwise=true in canvas (CCW in canvas = decreasing Y-down angle)
+    //  WAIT - after Y-flip, CCW in DXF LOOKS CW on screen (Y-down)
+    //  DXF CCW → screen CW → counterclockwise=false in ctx.arc
+    //  And angles: screen_angle = -dxf_angle_radians
     // ====================================================
     function drawArc(cx, cy, r, sa_deg, ea_deg) {
         const c = w2s(cx, cy);
         const rs = r * view.zoom;
-        // Negate angles to account for Y-flip (DXF Y-up → screen Y-down)
+        // Negate angles because Y is flipped (DXF Y-up → canvas Y-down)
         const sa = -sa_deg * Math.PI / 180;
         const ea = -ea_deg * Math.PI / 180;
-        // DXF arc is always CCW → after Y-flip it's visually CCW → counterclockwise=true
-        ctx.arc(c.x, c.y, rs, sa, ea, true);
+        // After Y-flip, DXF CCW arc appears CW on screen → counterclockwise=false
+        ctx.arc(c.x, c.y, rs, sa, ea, false);
         ctx.stroke();
     }
 
@@ -363,46 +368,50 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.stroke();
     }
 
+    // ====================================================
+    //  POLYLINE BULGE ARC (LWPOLYLINE)
+    //  Bulge: + = CCW in DXF = CW on screen (Y-flip)
+    //  Center: to the LEFT of P1→P2 for CCW (+ bulge)
+    //    LEFT = rotate +90° from chord: centerAngle = chordAngle + PI/2
+    //    But when sgn=+1 (CCW/left), multiply by +1
+    //    When sgn=-1 (CW/right), multiply by -1
+    // ====================================================
     function drawBulgeArc(v1, v2, bulge) {
         const dx=v2.x-v1.x, dy=v2.y-v1.y;
         const dist=Math.hypot(dx,dy);
         if (dist<1e-10) return;
 
         const ab=Math.abs(bulge);
-        // Radius formula: r = d*(b²+1)/(4|b|)
         const r=dist*(ab*ab+1)/(4*ab);
 
-        // Distance from chord midpoint to arc center:
-        // h = sqrt(r² - (d/2)²) with sign for which side
+        // Distance from chord midpoint to arc center
         const h2=r*r-(dist/2)*(dist/2);
         const h=h2>0?Math.sqrt(h2):0;
 
-        // Direction of center from midpoint:
-        // DXF: +bulge → CCW → center to LEFT of P1→P2 direction
-        // LEFT = rotate chord direction by +90° = perpendicular
+        // Center is to LEFT of P1→P2 for positive bulge (CCW in DXF)
+        // LEFT = perpendicular CCW from chord direction = chordAngle + PI/2
         const chordAngle=Math.atan2(dy,dx);
         const perpAngle=chordAngle+Math.PI/2;
-        const sgn=Math.sign(bulge); // +1=CCW(left), -1=CW(right)
+        const sgn=Math.sign(bulge);
 
         const midX=(v1.x+v2.x)/2, midY=(v1.y+v2.y)/2;
-        const cx=midX+sgn*h*Math.cos(perpAngle);
-        const cy=midY+sgn*h*Math.sin(perpAngle);
+        const arcCx=midX+sgn*h*Math.cos(perpAngle);
+        const arcCy=midY+sgn*h*Math.sin(perpAngle);
 
-        // Angles from center to P1 and P2 (in DXF world space)
-        const aDxfStart=Math.atan2(v1.y-cy,v1.x-cx);
-        const aDxfEnd=Math.atan2(v2.y-cy,v2.x-cx);
+        // Angles from arc center to P1 and P2 in DXF world coords
+        const aDxfStart=Math.atan2(v1.y-arcCy,v1.x-arcCx);
+        const aDxfEnd=Math.atan2(v2.y-arcCy,v2.x-arcCx);
 
-        // Map to screen space (negate for Y-flip)
+        // Convert to screen space (negate for Y-flip)
         const aScStart=-aDxfStart;
         const aScEnd=-aDxfEnd;
 
-        // Screen radius
         const rs=r*view.zoom;
-        const sc=w2s(cx,cy);
+        const sc=w2s(arcCx,arcCy);
 
-        // DXF CCW (+bulge) → visually CCW on screen → counterclockwise=true
-        // DXF CW (-bulge) → visually CW on screen → counterclockwise=false
-        ctx.arc(sc.x,sc.y,rs,aScStart,aScEnd,bulge>0);
+        // DXF +bulge = CCW = on screen (Y-flip) = CW → counterclockwise=false
+        // DXF -bulge = CW = on screen (Y-flip) = CCW → counterclockwise=true
+        ctx.arc(sc.x,sc.y,rs,aScStart,aScEnd,bulge<0);
     }
 
     // --- DRAW MEASURES ---
