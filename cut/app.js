@@ -330,11 +330,12 @@ function optimizar() {
             let txt = `${part.lbl}`;
             let dimTxt = part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}${is1D ? 'mm' : 'x' + part.realH}`;
             
-            ctx.fillText(txt, cx + cw/2, cy + ch/2 - (is1D?0:6));
-            if(ch > (30*scaleBy)) {
-                ctx.font = `bold ${Math.max(10, 14*scaleBy)}px sans-serif`;
+            // Separación vertical constante para evitar colisión de textos
+            ctx.fillText(txt, cx + cw/2, cy + ch/2 - 8);
+            if(ch > (25*scaleBy) || is1D) {
+                ctx.font = `bold ${Math.max(10, 12*scaleBy)}px sans-serif`;
                 ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + (is1D?0:12));
+                ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + 8);
             }
         });
 
