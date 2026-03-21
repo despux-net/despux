@@ -20,7 +20,6 @@
                 <details>
                     <summary data-i18n="nav_tools">HERRAMIENTAS</summary>
                     <div class="dropdown-menu">
-                        <!-- Integración con Firebase / Tracking en onclick -->
                         <a href="/tuberia/" data-i18n="nav_calc" onclick="trackTool('Calculadora_Tuberias')">Calculadora de Tuberías</a>
                         <a href="https://www.despux.net/gear" data-i18n="nav_gears" onclick="trackTool('Calculo_Engranaje')">Cálculo de Engranaje</a>
                         <a href="https://www.despux.net/cad" data-i18n="nav_cad" onclick="trackTool('CAD_Viewer')">CAD VIEWER</a>
@@ -28,9 +27,9 @@
                 </details>
 
                 <button class="nav-btn" id="btn-works" onclick="goWorks()" data-i18n="nav_works">
-                    TRABAJOS
+                    TRABAJOS Y PROYECTOS
                 </button>
-                <button class="nav-btn" id="btn-dash" onclick="goDashboard()" data-i18n="nav_dash" style="font-size:0.8rem; opacity:0.7;">
+                <button class="nav-btn" id="btn-dash" onclick="toggleDashboard()" data-i18n="nav_dash" style="font-size:0.8rem; opacity:0.7;">
                     ADMIN
                 </button>
             </nav>
@@ -49,83 +48,81 @@
         </div>
     </header>
 
-    <div id="main-container">
+    <!-- VISTAS PÚBLICAS (Scroll vertical) -->
+    <div id="public-views">
+        
+        <!-- HERO SECTION -->
+        <section class="hero" id="home-section">
+            <h1 data-i18n="hero_title">Proyectos de Ingeniería</h1>
+            <p data-i18n="hero_desc">
+                Simplificamos procesos técnicos con precisión. Acceda a nuestra suite de herramientas desde el menú superior.
+            </p>
+        </section>
 
-        <!-- VISTA 1: INICIO (HOME) -->
-        <div class="view-slide" id="view-home">
-            <section class="hero">
-                <h1 data-i18n="hero_title">Proyectos de Ingeniería <br>página Web en construcción.</h1>
-                <p data-i18n="hero_desc">
-                    Simplificamos procesos técnicos con precisión. Acceda a nuestra suite de herramientas desde el menú superior.
-                </p>
-            </section>
-
-            <section class="contact-section">
-                <div class="contact-wrapper">
-                    <div class="contact-info">
-                        <h3 data-i18n="contact_title">Contacto Directo</h3>
-                        <p data-i18n="contact_desc">
-                            ¿Tiene alguna consulta técnica, sugerencia sobre nuestras herramientas o requiere asistencia personalizada? 
-                            Utilice el formulario para enviar un mensaje directo a nuestra administración.
-                        </p>
-                    </div>
-
-                    <div class="form-box">
-                        <form id="contact-form">
-                            <!-- Agregado campo name según DB -->
-                            <input type="text" name="name" data-i18n-placeholder="input_name" placeholder="Su Nombre" required>
-                            <input type="email" name="email" data-i18n-placeholder="input_email" placeholder="Su Correo Electrónico" required>
-                            <textarea name="message" rows="4" data-i18n-placeholder="input_msg" placeholder="Escriba su mensaje..." required></textarea>
-                            <button type="submit" class="btn-submit" data-i18n="btn_send">ENVIAR</button>
-                        </form>
-                    </div>
-                </div>
-            </section>
-            <footer>
-                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
-                <div class="author-sig" data-i18n="footer_dev">Desarrollado y mantenido por Marcos Despujos.</div>
-            </footer>
-        </div>
-
-        <!-- VISTA 2: TRABAJOS (PORTAFOLIO) -->
-        <div class="view-slide" id="view-works">
+        <!-- WORKS SECTION -->
+        <section id="works-section">
+            <h2 class="section-title" data-i18n="nav_works" style="color:var(--text-main); font-weight:700;">TRABAJOS Y PROYECTOS</h2>
             <div class="works-wrapper" id="projects-container">
-                <!-- Los proyectos se cargarán dinámicamente aquí vía JS -->
+                <!-- Se cargan vía Supabase -->
             </div>
-            <footer>
-                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
-            </footer>
-        </div>
+        </section>
 
-        <!-- VISTA 3: DASHBOARD ADMIN -->
-        <div class="view-slide" id="view-dashboard">
-            <div class="dashboard-wrapper">
-                <div class="dashboard-header">
-                    <h2>Panel de Administración</h2>
-                    <button class="btn-submit" id="btn-logout" style="display:none;" onclick="logout()">Cerrar Sesión</button>
+        <!-- CONTACT SECTION -->
+        <section class="contact-section" id="contact-section">
+            <div class="contact-wrapper">
+                <div class="contact-info">
+                    <h3 data-i18n="contact_title">Contacto Directo</h3>
+                    <p data-i18n="contact_desc">
+                        ¿Tiene alguna consulta técnica, sugerencia sobre nuestras herramientas o requiere asistencia personalizada? 
+                        Utilice el formulario para enviar un mensaje directo a nuestra administración.
+                    </p>
                 </div>
-                
-                <!-- Formulario de Login -->
-                <div id="login-container">
-                    <p style="margin-bottom:20px; color:var(--text-muted)">Ingrese sus credenciales para acceder a los mensajes.</p>
-                    <form id="login-form">
-                        <input type="email" name="email" placeholder="Email Admin" required>
-                        <input type="password" name="password" placeholder="Contraseña" required>
-                        <button type="submit" class="btn-submit">Ingresar</button>
+
+                <div class="form-box">
+                    <form id="contact-form">
+                        <input type="text" name="name" data-i18n-placeholder="input_name" placeholder="Su Nombre" required>
+                        <input type="email" name="email" data-i18n-placeholder="input_email" placeholder="Su Correo Electrónico" required>
+                        <textarea name="message" rows="4" data-i18n-placeholder="input_msg" placeholder="Escriba su mensaje..." required></textarea>
+                        <button type="submit" class="btn-submit" data-i18n="btn_send">ENVIAR</button>
                     </form>
                 </div>
-
-                <!-- Lista de Mensajes (Oculto inicialmente) -->
-                <div id="dashboard-content" style="display:none;">
-                    <h3 style="margin-bottom:20px;">Mensajes de Contacto Recientes</h3>
-                    <div id="messages-list"></div>
-                </div>
             </div>
-        </div>
+        </section>
 
+        <footer>
+            <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
+            <div class="author-sig" data-i18n="footer_dev">Desarrollado y mantenido por Marcos Despujos.</div>
+        </footer>
     </div>
 
-    <!-- Template for Skeleton Screen (Projects) -->
+    <!-- VISTA DASHBOARD (ADMIN) -->
+    <div id="admin-view">
+        <div class="dashboard-wrapper">
+            <div class="dashboard-header">
+                <h2>Panel de Administración (Supabase)</h2>
+                <div>
+                    <button class="btn-submit" onclick="toggleDashboard()" style="margin-right:10px; background:#444; color:white;">Cerrar Panel</button>
+                    <button class="btn-submit" id="btn-logout" style="display:none; background:#d32f2f; color:white;" onclick="logout()">Cerrar Sesión</button>
+                </div>
+            </div>
+            
+            <div id="login-container">
+                <p style="margin-bottom:20px; color:var(--text-muted)">Ingrese sus credenciales para acceder a los mensajes enviados vía formulario de contacto.</p>
+                <form id="login-form">
+                    <input type="email" name="email" placeholder="Email Admin" required>
+                    <input type="password" name="password" placeholder="Contraseña" required>
+                    <button type="submit" class="btn-submit">Ingresar</button>
+                </form>
+            </div>
+
+            <div id="dashboard-content" style="display:none;">
+                <h3 style="margin-bottom:20px;">Mensajes Recibidos en Supabase DB</h3>
+                <div id="messages-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SKELETON TEMPLATE PARA PROYECTOS -->
     <template id="skeleton-template">
         <article class="project-card skeleton">
             <div class="project-image sk-img"></div>
