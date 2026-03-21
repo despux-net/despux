@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Optimizador de Corte (Nesting) | DESPUX</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#1e293b'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- html2pdf for export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* Estilos base para impresiones y animaciones */
+        canvas { max-width: 100%; object-fit: contain; }
+        .cut-plan-box { margin-bottom: 2rem; break-inside: avoid; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-slate-900 dark:text-gray-100 transition-colors duration-300 min-h-screen flex flex-col">
+    
+    <!-- Navbar -->
+    <header class="bg-white dark:bg-slate-800 shadow-md py-4 px-6 flex justify-between items-center sticky top-0 z-50">
+        <a href="/" class="text-2xl font-extrabold tracking-widest uppercase cursor-pointer">
+            DESPUX <span class="text-primary">CUT</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <button id="theme-toggle" class="p-2 bg-gray-200 dark:bg-slate-700 rounded-full hover:bg-gray-300 dark:hover:bg-slate-600 transition">
+                <svg class="w-5 h-5 dark:hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                <svg class="w-5 h-5 hidden dark:block text-yellow-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path></svg>
+            </button>
+            <a href="/" class="text-sm font-semibold hover:text-primary transition uppercase">Volver al Inicio</a>
+        </div>
+    </header>
+    
+    <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full flex-grow">
+        
+        <!-- PANEL IZQUIERDO: CONFIGURACIÓN E INPUTS (5 Columnas) -->
+        <div class="col-span-1 lg:col-span-5 space-y-6">
+            
+            <!-- TARJETA: CONFIGURACIÓN GLOBAL -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Configuración Global</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Grosor (Kerf) mm</label>
+                        <input type="number" id="kerf" value="3" min="0" step="0.1" class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded p-2 focus:outline-none focus:border-primary">
+                    </div>
+                    <div class="flex items-end">
+                        <label class="flex items-center space-x-2 text-sm font-semibold cursor-pointer">
+                            <input type="checkbox" id="allow-rotation" checked class="form-checkbox text-primary rounded h-5 w-5 bg-gray-50 dark:bg-slate-900 border-gray-300 dark:border-slate-600">
+                            <span>Permitir Rotación (2D)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA: MATERIAL BASE (STOCK) -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Material Base (Stock)</h2>
+                <div class="grid grid-cols-3 gap-2 mb-2 px-1">
+                    <span class="text-xs font-semibold uppercase text-gray-500">Largo (L)</span>
+                    <span class="text-xs font-semibold uppercase text-gray-500">Ancho (W) / 1D=0</span>
+                    <span class="text-xs font-semibold uppercase text-gray-500">Cantidad</span>
+                </div>
+                <!-- Contenedor dinámico de Stock -->
+                <div id="stock-container" class="space-y-3">
+                    <div class="flex gap-2 stock-row">
+                        <input type="number" min="1" placeholder="Ej: 6000" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-L">
+                        <input type="number" min="0" placeholder="Ej: 1200" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-W" value="0">
+                        <input type="number" min="1" value="10" placeholder="Cant" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-Qty">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARJETA: PIEZAS A CORTAR -->
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
+                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Partes Requeridas</h2>
+                <div class="grid grid-cols-12 gap-2 mb-2 px-1">
+                    <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Largo</span>
+                    <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Ancho</span>
+                    <span class="col-span-2 text-[10px] font-semibold uppercase text-gray-500">Cant</span>
+                    <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Etiqueta</span>
+                    <span class="col-span-1 text-[10px] font-semibold uppercase text-gray-500"></span>
+                </div>
+                <!-- Contenedor dinámico de Partes -->
+                <div id="parts-container" class="space-y-3">
+                    <!-- Fila Base -->
+                    <div class="flex gap-2 items-center part-row">
+                        <input type="number" min="1" class="w-3/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-L" required>
+                        <input type="number" min="0" value="0" class="w-3/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-W" required>
+                        <input type="number" min="1" value="1" class="w-2/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-Qty" required>
+                        <input type="text" placeholder="P1" class="w-3/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-Lbl" required>
+                        <button type="button" class="w-1/12 text-red-500 hover:text-red-700 text-xl font-bold btn-remove" tabindex="-1">×</button>
+                    </div>
+                </div>
+                
+                <button type="button" id="btn-add-part" class="mt-4 w-full py-2 border-2 border-dashed border-gray-300 dark:border-slate-600 text-gray-500 hover:text-primary hover:border-primary rounded transition font-semibold text-sm">
+                    + AÑADIR PIEZA
+                </button>
+
+                <div class="mt-8 pt-4 border-t border-gray-200 dark:border-slate-600">
+                    <button id="btn-optimize" class="w-full bg-primary hover:bg-blue-600 text-white font-bold text-lg py-3 rounded shadow-lg transition transform hover:scale-[1.02]">
+                        OPTIMIZAR CORTE
+                    </button>
+                    <p class="text-xs text-center text-gray-500 mt-2">Algoritmo FFD (First Fit Decreasing)</p>
+                </div>
+            </div>
+
+        </div>
+        
+        <!-- PANEL DERECHO: RESULTADOS (7 Columnas) -->
+        <div class="col-span-1 lg:col-span-7 flex flex-col h-full">
+            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex-grow h-full flex flex-col" id="export-area">
+                
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Plan de Corte</h2>
+                    <button id="btn-pdf" class="hidden bg-slate-800 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded text-sm font-bold shadow hover:opacity-90 transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Exportar PDF
+                    </button>
+                </div>
+
+                <!-- ESTADÍSTICAS GLOBALES -->
+                <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 hidden">
+                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
+                        <p class="text-xs text-gray-500 font-bold uppercase">Piezas Cortadas</p>
+                        <p class="text-2xl font-extrabold text-primary" id="stat-cut">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
+                        <p class="text-xs text-gray-500 font-bold uppercase">Paneles/Tubos Usados</p>
+                        <p class="text-2xl font-extrabold text-gray-800 dark:text-white" id="stat-used">0</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
+                        <p class="text-xs text-gray-500 font-bold uppercase">% Desperdicio</p>
+                        <p class="text-2xl font-extrabold text-red-500" id="stat-waste">0%</p>
+                    </div>
+                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
+                        <p class="text-xs text-gray-500 font-bold uppercase">Sin encajar</p>
+                        <p class="text-2xl font-extrabold text-orange-500" id="stat-missing">0</p>
+                    </div>
+                </div>
+
+                <!-- RENDER VISUAL DE CORTES -->
+                <div id="render-container" class="flex-grow overflow-y-auto space-y-8 pb-10">
+                    <div class="flex h-full w-full justify-center items-center text-gray-400 text-sm italic">
+                        Configure sus materiales y piezas, luego presione Optimizar Corte.
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <script src="./app.js"></script>
+</body>
+</html>
