@@ -450,8 +450,8 @@
                     </div>
 
                     <!-- Visualization Box -->
-                    <div class="mt-4 border border-[var(--border-color)] rounded bg-[var(--bg-body)] p-2 flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity" onclick="openKModal()">
-                        <span class="text-[9px] text-[var(--text-muted)] uppercase mb-2 w-full text-left">Esquema de Medición (Clic para ampliar)</span>
+                    <div class="mt-4 border border-[var(--border-color)] rounded bg-[var(--bg-body)] p-2 flex flex-col items-center">
+                        <span class="text-[9px] text-[var(--text-muted)] uppercase mb-2 w-full text-left">Esquema de Medición</span>
                         <canvas id="canvasK" class="w-full h-32"></canvas>
                         <p class="text-[9px] text-[var(--text-muted)] mt-1 text-center italic">Medición sobre <span id="outTeethSpan">3</span> dientes</p>
                     </div>
@@ -460,20 +460,6 @@
         </aside>
 
     </div>
-
-    <!-- Modal for K Measurement Scheme -->
-    <dialog id="kModal" class="bg-transparent p-0 backdrop:bg-black/50">
-        <div class="bg-[var(--bg-panel)] border border-[var(--border-color)] rounded-lg shadow-xl p-6 max-w-2xl w-full relative flex flex-col">
-            <button onclick="closeKModal()" class="absolute top-4 right-4 text-[var(--text-muted)] hover:text-[var(--text-main)]">
-                <i class="fa-solid fa-xmark text-xl"></i>
-            </button>
-            <h3 class="text-lg font-bold text-[var(--text-main)] mb-4 text-center uppercase">Esquema de Medición "K"</h3>
-            <div class="flex-1 bg-[var(--bg-body)] rounded border border-[var(--border-color)] p-4 flex items-center justify-center">
-                <canvas id="canvasKModal" class="w-full h-full max-h-[400px]"></canvas>
-            </div>
-            <p class="text-sm text-[var(--text-muted)] mt-4 text-center italic">Medición sobre <span id="outTeethSpanModal">3</span> dientes</p>
-        </div>
-    </dialog>
 
     <script>
         // --- TRANSLATION DATA ---
@@ -737,10 +723,7 @@
                 labelStd: document.getElementById('labelStd'),
             },
             canvas: document.getElementById('mainCanvas'),
-            canvasK: document.getElementById('canvasK'),
-            kModal: document.getElementById('kModal'),
-            canvasKModal: document.getElementById('canvasKModal'),
-            outTeethSpanModal: document.getElementById('outTeethSpanModal'),
+            canvasK: document.getElementById('canvasK')
         };
 
         let state = {
@@ -860,7 +843,7 @@
                 icon.className = 'fa-solid fa-sun';
             }
             calculate();
-            calculateMk(); // Redraw helper canvas if needed
+            drawK(); // Redraw helper canvas if needed
         }
 
         function setMode(mode) {
@@ -970,7 +953,6 @@
             const C = getCasillasSpaces(Z, Alpha);
             ui.inputs.outRevSpaces.textContent = C;
             ui.inputs.outTeethSpan.textContent = C + 1; // Spanning C spaces means measuring over C+1 teeth
-            ui.outTeethSpanModal.textContent = C + 1;
 
             // 2. Calculate Theoretical K factor (K for Module 1)
             let factorK = 0;
@@ -988,20 +970,17 @@
             
             ui.inputs.outRevMk.textContent = Mk.toFixed(4);
             
-            drawK(C, Alpha, ui.canvasK);
-            if (ui.kModal.open) {
-                drawK(C, Alpha, ui.canvasKModal);
-            }
+            drawK(C, Z, Alpha);
         }
 
-        function drawK(C, Alpha, canvas) {
+        function drawK(C, Z, Alpha) {
+            const canvas = ui.canvasK;
             const ctx = canvas.getContext('2d');
             const style = getComputedStyle(document.body);
             const colStroke = style.getPropertyValue('--gear-stroke').trim();
             const colFill = style.getPropertyValue('--gear-fill').trim();
-            const colDim = style.getPropertyValue('--dim-line').trim();
+            const colDim = style.getPropertyValue('--brand-primary').trim();
             const colBg = style.getPropertyValue('--bg-input').trim();
-            const colPrimary = style.getPropertyValue('--brand-primary').trim();
 
             const dpr = window.devicePixelRatio || 1;
             const rect = canvas.getBoundingClientRect();
@@ -1011,141 +990,97 @@
             
             ctx.clearRect(0, 0, rect.width, rect.height);
 
-            const teethToSpan = C + 1;
-            const teethToDraw = teethToSpan + 2; // Draw one extra on each side
+            const cx = rect.width / 2;
+            const cy = rect.height * 1.2; // Push gear down
+            const radius = rect.width * 0.8; 
+            
+            // Draw a simplified Arc of teeth
+            const teethToDraw = Math.max(C + 3, 5);
+            const angleStep = (Math.PI * 2) / Z; // Real angle step would be small for large Z
+            // We fake the visual angleStep to fit the view
+            const visualStep = 0.2; // Radians per tooth for drawing
+            const startAngle = -Math.PI/2 - (visualStep * teethToDraw / 2);
 
-            // Schematic parameters
-            const pitch = rect.width / (teethToDraw + 0.5);
-            const toothThickness = pitch * 0.5;
-            const addendum = pitch * 0.35;
-            const dedendum = pitch * 0.4;
-            const pressureAngleRad = (Alpha * Math.PI) / 180;
-            const tanPA = Math.tan(pressureAngleRad);
-            
-            const cy = rect.height * 0.6;
-            const startX = (rect.width - (teethToDraw * pitch)) / 2 + pitch * 0.5;
-            
             ctx.beginPath();
             ctx.strokeStyle = colStroke;
-            ctx.lineWidth = 1.5;
-            ctx.fillStyle = colFill;
-
-            let leftFlankX = 0;
-            let rightFlankX = 0;
-
+            ctx.lineWidth = 1;
+            
+            // Draw arc profile
             for (let i = 0; i < teethToDraw; i++) {
-                const xBase = startX + i * pitch;
+                const angle = startAngle + (i * visualStep);
+                const rOut = radius;
+                const rIn = radius - 20;
                 
-                // Points for a single tooth
-                // Bottom Left
-                const p1 = { x: xBase - toothThickness/2 - dedendum*tanPA, y: cy + dedendum };
-                // Pitch Left
-                const p2 = { x: xBase - toothThickness/2, y: cy };
-                // Top Left
-                const p3 = { x: xBase - toothThickness/2 + addendum*tanPA, y: cy - addendum };
-                // Top Right
-                const p4 = { x: xBase + toothThickness/2 - addendum*tanPA, y: cy - addendum };
-                // Pitch Right
-                const p5 = { x: xBase + toothThickness/2, y: cy };
-                // Bottom Right
-                const p6 = { x: xBase + toothThickness/2 + dedendum*tanPA, y: cy + dedendum };
-
-                // Capture measurement points
-                if (i === 1) { // First tooth to measure
-                    leftFlankX = p2.x; // Measure at pitch line roughly
-                }
-                if (i === teethToSpan) { // Last tooth to measure
-                    rightFlankX = p5.x;
-                }
-
-                if (i === 0) ctx.moveTo(p1.x - pitch/2, p1.y); // Start line
-
-                ctx.lineTo(p1.x, p1.y);
-                ctx.lineTo(p3.x, p3.y);
-                ctx.lineTo(p4.x, p4.y);
-                ctx.lineTo(p6.x, p6.y);
+                const toothWidth = visualStep * 0.5;
+                const a1 = angle;
+                const a2 = angle + (toothWidth * 0.2); // Up
+                const a3 = angle + (toothWidth * 0.8); // Top
+                const a4 = angle + toothWidth; // Down
+                
+                // Base
+                ctx.arc(cx, cy, rIn, a1, a1); 
+                // Tooth
+                ctx.lineTo(cx + Math.cos(a2) * rOut, cy + Math.sin(a2) * rOut);
+                ctx.arc(cx, cy, rOut, a2, a3);
+                ctx.lineTo(cx + Math.cos(a4) * rIn, cy + Math.sin(a4) * rIn);
+                
+                // Bottom land
+                ctx.arc(cx, cy, rIn, a4, angle + visualStep);
             }
-             ctx.lineTo(startX + teethToDraw * pitch + pitch/2, cy + dedendum); // End line
-
             ctx.stroke();
-            ctx.fill();
 
-            // Draw Measurement Callipers
-            const measureY = cy - addendum - 10;
-            const caliperHeight = addendum + dedendum + 20;
+            // Draw Measurement Caliper Indication
+            // We want to span 'C' spaces -> From tooth index 1 to index 1+C
+            // Start index for measure:
+            const measureStartIdx = Math.floor((teethToDraw - (C+1)) / 2);
+            const measureEndIdx = measureStartIdx + C; // Actually spanning C+1 teeth means index i to i+C?
+            // If C=1 space, we touch tooth 1 and tooth 2.
+            
+            // Calculate angles for the caliper jaws
+            // Left Jaw touches left flank of first measured tooth
+            // Right Jaw touches right flank of last measured tooth
+            
+            const idxLeft = measureStartIdx;
+            const idxRight = measureStartIdx + C;
+            
+            const angLeft = startAngle + (idxLeft * visualStep) + (visualStep * 0.15); // Approx left flank
+            const angRight = startAngle + (idxRight * visualStep) + (visualStep * 0.85); // Approx right flank of the last tooth
+            
+            const rMeasure = radius - 8;
+            
+            const xL = cx + Math.cos(angLeft) * rMeasure;
+            const yL = cy + Math.sin(angLeft) * rMeasure;
+            const xR = cx + Math.cos(angRight) * rMeasure;
+            const yR = cy + Math.sin(angRight) * rMeasure;
             
             // Jaws
-            ctx.fillStyle = colPrimary + '40'; // Semi-transparent primary
-            ctx.strokeStyle = colPrimary;
-            ctx.lineWidth = 2;
-
-            // Left Jaw
-            ctx.beginPath();
-            ctx.moveTo(leftFlankX, cy);
-            ctx.lineTo(leftFlankX, measureY - 20);
-            ctx.lineTo(leftFlankX - 10, measureY - 20);
-            ctx.lineTo(leftFlankX - 10, cy + dedendum + 10);
-            ctx.lineTo(leftFlankX, cy + dedendum + 10);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            // Right Jaw
-            ctx.beginPath();
-            ctx.moveTo(rightFlankX, cy);
-            ctx.lineTo(rightFlankX, measureY - 20);
-            ctx.lineTo(rightFlankX + 10, measureY - 20);
-            ctx.lineTo(rightFlankX + 10, cy + dedendum + 10);
-            ctx.lineTo(rightFlankX, cy + dedendum + 10);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-
-            // Dimension Line
-            const dimY = measureY - 30;
-            ctx.beginPath();
             ctx.strokeStyle = colDim;
-            ctx.lineWidth = 1.5;
-            ctx.moveTo(leftFlankX, dimY);
-            ctx.lineTo(rightFlankX, dimY);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Left Jaw
+            ctx.moveTo(xL, yL);
+            ctx.lineTo(xL, yL - 40);
+            // Right Jaw
+            ctx.moveTo(xR, yR);
+            ctx.lineTo(xR, yR - 40);
+            ctx.stroke();
+            
+            // Dimension Line
+            ctx.beginPath();
+            ctx.moveTo(xL, yL - 30);
+            ctx.lineTo(xR, yR - 30);
             ctx.stroke();
             
             // Arrows
             ctx.fillStyle = colDim;
-            ctx.beginPath();
-            ctx.moveTo(leftFlankX, dimY);
-            ctx.lineTo(leftFlankX + 8, dimY - 3);
-            ctx.lineTo(leftFlankX + 8, dimY + 3);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(rightFlankX, dimY);
-            ctx.lineTo(rightFlankX - 8, dimY - 3);
-            ctx.lineTo(rightFlankX - 8, dimY + 3);
-            ctx.fill();
-
+            ctx.beginPath(); ctx.arc(xL, yL - 30, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(xR, yR - 30, 2, 0, Math.PI*2); ctx.fill();
+            
             // Text
             ctx.fillStyle = colStroke;
-            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.font = 'bold 10px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText(`K = ${ui.inputs.revK.value}`, (leftFlankX + rightFlankX) / 2, dimY - 10);
-
-            // Teeth span indication
-            ctx.fillStyle = colStroke;
-            ctx.font = 'italic 10px Inter, sans-serif';
-            ctx.textAlign = 'center';
-            const spanTextY = cy + dedendum + 25;
-            
-            // Bracket
-            ctx.beginPath();
-            ctx.strokeStyle = colStroke;
-            ctx.lineWidth = 1;
-            ctx.moveTo(leftFlankX, spanTextY - 5);
-            ctx.lineTo(leftFlankX, spanTextY);
-            ctx.lineTo(rightFlankX, spanTextY);
-            ctx.lineTo(rightFlankX, spanTextY - 5);
-            ctx.stroke();
-
-            ctx.fillText(`${teethToSpan} Dientes`, (leftFlankX + rightFlankX) / 2, spanTextY + 12);
+            ctx.fillText(`K = ${ui.inputs.revK.value}`, (xL+xR)/2, yL - 35);
         }
 
         function calculate() {
@@ -1455,23 +1390,6 @@
             return `0${nl}CIRCLE${nl}8${nl}0${nl}10${nl}${cx.toFixed(6)}${nl}20${nl}${cy.toFixed(6)}${nl}30${nl}0.0${nl}40${nl}${r.toFixed(6)}${nl}`;
         }
 
-        // MODAL FUNCTIONS
-        function openKModal() {
-            ui.kModal.showModal();
-            calculateMk(); // Trigger redraw on modal canvas
-        }
-
-        function closeKModal() {
-            ui.kModal.close();
-        }
-
-        // Event listeners for modal
-        ui.kModal.addEventListener('click', (event) => {
-            if (event.target === ui.kModal) {
-                closeKModal();
-            }
-        });
-
         ui.inputs.module.addEventListener('input', calculate);
         ui.inputs.teeth.addEventListener('input', calculate);
         ui.inputs.angle.addEventListener('input', function() {
@@ -1489,11 +1407,6 @@
         ui.inputs.revAlpha.addEventListener('change', calculateMk);
 
         new ResizeObserver(calculate).observe(ui.canvas.parentElement);
-        // Observer for modal resize to redraw
-        new ResizeObserver(() => {
-            if (ui.kModal.open) calculateMk();
-        }).observe(ui.canvasKModal.parentElement);
-
         changeLang('es');
     </script>
 </body>

@@ -1,0 +1,53 @@
+name: Deploy SPA to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  # Permite ejecutar el workflow manualmente desde la pestaña Actions
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Configurar Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js (Para herramientas de minificación)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Dependencias de Minificación
+        # Usamos clean-css para CSS y terser para Vanilla JS / ES Modules
+        run: npm install -g terser clean-css-cli
+
+      - name: Ejecutar Minificación de Archivos (JS y CSS)
+        run: |
+          # 1. Minificar CSS
+          cleancss -o css/main.min.css css/main.css
+          mv css/main.min.css css/main.css
+          
+          # 2. Minificar Módulo Principal (app.js)
+          terser js/app.js -o js/app.min.js --module
+          mv js/app.min.js js/app.js
+          
+          # 3. Minificar Cliente Supabase (supabase-config.js)
+          terser js/supabase-config.js -o js/supabase-config.min.js --module
+          mv js/supabase-config.min.js js/supabase-config.js
+
+      - name: Desplegar a GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          # TOKEN por defecto provisto por GitHub Actions
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Directorio a subir (toda la raíz minificada)
+          publish_dir: ./
+          # Rama destino de GitHub Pages
+          publish_branch: gh-pages
+          commit_message: "Despliegue Automático: CSS/JS minificado [skip ci]"

@@ -1,99 +1,144 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DESPUX | Soluciones de Ingeniería</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        bgBody: 'var(--bg-body)',
-                        bgSurface: 'var(--bg-surface)',
-                        primary: '#3b82f6', // Keep blue as primary logic color
-                        textMain: 'var(--text-main)',
-                        textMuted: 'var(--text-muted)',
-                        border: 'var(--border)',
-                        headerBg: 'var(--header-bg)',
-                    },
-                    boxShadow: {
-                        'primary-glow': '0 0 10px rgba(59, 130, 246, 0.5)',
-                        'glass': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                    },
-                    fontFamily: {
-                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        :root {
-            /* Mac 2010s Light Theme (Default) */
-            --bg-body: #d6d6d6;
-            /* Slightly darker gray as requested */
-            /* Silver background */
-            --bg-surface: #ffffff;
-            /* ... existing vars ... */
-            --text-main: #333333;
-            /* ... */
-            --primary: #3b82f6;
-        }
-
-        /* Dark mode overrides skipped for brevity, keeping existing logical flow */
-
-        /* Global Reset & Base */
-        html {
-            background-color: var(--bg-body);
-            /* Apply background here */
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: transparent;
-            /* Transparent to show bg-layer and html bg */
-            color: var(--text-main);
-            overflow: hidden;
-            /* Prevent global scroll */
-            transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        .bg-layer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-
-            /* Head Background Image from GitHub */
-            background-image: url('https://raw.githubusercontent.com/despux-net/despux/main/ENGINEERING/head.jpg');
-            background-size: 50%;
-            /* 50% smaller */
-            background-position: left center;
-            /* Moved to left side */
-            background-repeat: no-repeat;
-
-            /* Gradient Mask to fade edge */
-            -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 20%, rgba(0, 0, 0, 0) 50%);
-            mask-image: linear-gradient(to right, rgba(0, 0, 0, 1) 20%, rgba(0, 0, 0, 0) 50%);
-
-            display: block;
-            pointer-events: none;
-        }
-    </style>
-
-
-  <script type="module" crossorigin src="/assets/index-D60LYDl0.js"></script>
+    <!-- Hoja de estilos extraída limpia -->
+    <link rel="stylesheet" href="./css/main.css">
 </head>
-
 <body>
-    <div class="bg-layer"></div>
-    <div id="root"></div>
-</body>
+    <canvas id="canvas-network"></canvas>
 
+    <header>
+        <div class="header-left">
+            <a href="#" onclick="goHome(event)" class="brand">DESPUX <span>ENGINEERING</span></a>
+        </div>
+        
+        <div class="header-right">
+            <nav>
+                <details>
+                    <summary data-i18n="nav_tools">HERRAMIENTAS</summary>
+                    <div class="dropdown-menu">
+                        <!-- Integración con Firebase / Tracking en onclick -->
+                        <a href="/tuberia/" data-i18n="nav_calc" onclick="trackTool('Calculadora_Tuberias')">Calculadora de Tuberías</a>
+                        <a href="https://www.despux.net/gear" data-i18n="nav_gears" onclick="trackTool('Calculo_Engranaje')">Cálculo de Engranaje</a>
+                        <a href="https://www.despux.net/cad" data-i18n="nav_cad" onclick="trackTool('CAD_Viewer')">CAD VIEWER</a>
+                    </div>
+                </details>
+
+                <button class="nav-btn" id="btn-works" onclick="goWorks()" data-i18n="nav_works">
+                    TRABAJOS
+                </button>
+                <button class="nav-btn" id="btn-dash" onclick="goDashboard()" data-i18n="nav_dash" style="font-size:0.8rem; opacity:0.7;">
+                    ADMIN
+                </button>
+            </nav>
+
+            <div class="lang-selector">
+                <button class="lang-btn active" onclick="setLanguage('es')" title="Español">
+                    <img src="https://flagcdn.com/w40/es.png" alt="Español">
+                </button>
+                <button class="lang-btn" onclick="setLanguage('en')" title="English">
+                    <img src="https://flagcdn.com/w40/gb.png" alt="English">
+                </button>
+                <button class="lang-btn" onclick="setLanguage('de')" title="Deutsch">
+                    <img src="https://flagcdn.com/w40/de.png" alt="Deutsch">
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div id="main-container">
+
+        <!-- VISTA 1: INICIO (HOME) -->
+        <div class="view-slide" id="view-home">
+            <section class="hero">
+                <h1 data-i18n="hero_title">Proyectos de Ingeniería <br>página Web en construcción.</h1>
+                <p data-i18n="hero_desc">
+                    Simplificamos procesos técnicos con precisión. Acceda a nuestra suite de herramientas desde el menú superior.
+                </p>
+            </section>
+
+            <section class="contact-section">
+                <div class="contact-wrapper">
+                    <div class="contact-info">
+                        <h3 data-i18n="contact_title">Contacto Directo</h3>
+                        <p data-i18n="contact_desc">
+                            ¿Tiene alguna consulta técnica, sugerencia sobre nuestras herramientas o requiere asistencia personalizada? 
+                            Utilice el formulario para enviar un mensaje directo a nuestra administración.
+                        </p>
+                    </div>
+
+                    <div class="form-box">
+                        <form id="contact-form">
+                            <!-- Agregado campo name según DB -->
+                            <input type="text" name="name" data-i18n-placeholder="input_name" placeholder="Su Nombre" required>
+                            <input type="email" name="email" data-i18n-placeholder="input_email" placeholder="Su Correo Electrónico" required>
+                            <textarea name="message" rows="4" data-i18n-placeholder="input_msg" placeholder="Escriba su mensaje..." required></textarea>
+                            <button type="submit" class="btn-submit" data-i18n="btn_send">ENVIAR</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+            <footer>
+                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
+                <div class="author-sig" data-i18n="footer_dev">Desarrollado y mantenido por Marcos Despujos.</div>
+            </footer>
+        </div>
+
+        <!-- VISTA 2: TRABAJOS (PORTAFOLIO) -->
+        <div class="view-slide" id="view-works">
+            <div class="works-wrapper" id="projects-container">
+                <!-- Los proyectos se cargarán dinámicamente aquí vía JS -->
+            </div>
+            <footer>
+                <div data-i18n="footer_rights">&copy; 2024 DESPUX. Todos los derechos reservados.</div>
+            </footer>
+        </div>
+
+        <!-- VISTA 3: DASHBOARD ADMIN -->
+        <div class="view-slide" id="view-dashboard">
+            <div class="dashboard-wrapper">
+                <div class="dashboard-header">
+                    <h2>Panel de Administración</h2>
+                    <button class="btn-submit" id="btn-logout" style="display:none;" onclick="logout()">Cerrar Sesión</button>
+                </div>
+                
+                <!-- Formulario de Login -->
+                <div id="login-container">
+                    <p style="margin-bottom:20px; color:var(--text-muted)">Ingrese sus credenciales para acceder a los mensajes.</p>
+                    <form id="login-form">
+                        <input type="email" name="email" placeholder="Email Admin" required>
+                        <input type="password" name="password" placeholder="Contraseña" required>
+                        <button type="submit" class="btn-submit">Ingresar</button>
+                    </form>
+                </div>
+
+                <!-- Lista de Mensajes (Oculto inicialmente) -->
+                <div id="dashboard-content" style="display:none;">
+                    <h3 style="margin-bottom:20px;">Mensajes de Contacto Recientes</h3>
+                    <div id="messages-list"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Template for Skeleton Screen (Projects) -->
+    <template id="skeleton-template">
+        <article class="project-card skeleton">
+            <div class="project-image sk-img"></div>
+            <div class="project-info">
+                <div class="sk-tag skeleton"></div>
+                <div class="sk-title skeleton"></div>
+                <div class="sk-desc skeleton"></div>
+                <div class="sk-btn skeleton"></div>
+            </div>
+        </article>
+    </template>
+
+    <!-- Archivo JS modular -->
+    <script type="module" src="./js/app.js"></script>
+</body>
 </html>
