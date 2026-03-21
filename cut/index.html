@@ -3,26 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Optimizador de Corte (Nesting) | DESPUX</title>
+    <title>Optimizador de Compra y Corte | DESPUX</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
             theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                        secondary: '#1e293b'
-                    }
-                }
+                extend: { colors: { primary: '#3b82f6', secondary: '#1e293b' } }
             }
         }
     </script>
-    <!-- html2pdf for export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* Estilos base para impresiones y animaciones */
         canvas { max-width: 100%; object-fit: contain; }
         .cut-plan-box { margin-bottom: 2rem; break-inside: avoid; }
         ::-webkit-scrollbar { width: 8px; }
@@ -50,56 +43,52 @@
     <main class="max-w-7xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 w-full flex-grow">
         
         <!-- PANEL IZQUIERDO: CONFIGURACIÓN E INPUTS (5 Columnas) -->
-        <div class="col-span-1 lg:col-span-5 space-y-6">
+        <div class="col-span-1 lg:col-span-4 space-y-6">
             
-            <!-- TARJETA: CONFIGURACIÓN GLOBAL -->
-            <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Configuración Global</h2>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-semibold mb-1">Grosor (Kerf) mm</label>
-                        <input type="number" id="kerf" value="3" min="0" step="0.1" class="w-full bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded p-2 focus:outline-none focus:border-primary">
-                    </div>
-                    <div class="flex items-end">
-                        <label class="flex items-center space-x-2 text-sm font-semibold cursor-pointer">
-                            <input type="checkbox" id="allow-rotation" checked class="form-checkbox text-primary rounded h-5 w-5 bg-gray-50 dark:bg-slate-900 border-gray-300 dark:border-slate-600">
-                            <span>Permitir Rotación (2D)</span>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
             <!-- TARJETA: MATERIAL BASE (STOCK) -->
             <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Material Base (Stock)</h2>
-                <div class="grid grid-cols-3 gap-2 mb-2 px-1">
+                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Material Comercial a Comprar</h2>
+                <p class="text-xs text-gray-500 mb-4">Indique la dimensión estándar comercial de la lámina o tubo que vende su proveedor. Calcularemos cuántos comprar.</p>
+                
+                <div class="grid grid-cols-2 gap-2 mb-2 px-1">
                     <span class="text-xs font-semibold uppercase text-gray-500">Largo (L)</span>
                     <span class="text-xs font-semibold uppercase text-gray-500">Ancho (W) / 1D=0</span>
-                    <span class="text-xs font-semibold uppercase text-gray-500">Cantidad</span>
                 </div>
-                <!-- Contenedor dinámico de Stock -->
+                <!-- Contenedor de Dimensión Comercial -->
                 <div id="stock-container" class="space-y-3">
                     <div class="flex gap-2 stock-row">
-                        <input type="number" min="1" placeholder="Ej: 6000" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-L">
-                        <input type="number" min="0" placeholder="Ej: 1200" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-W" value="0">
-                        <input type="number" min="1" value="10" placeholder="Cant" class="w-1/3 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-Qty">
+                        <input type="number" min="1" placeholder="Ej: 6000" class="w-1/2 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-L">
+                        <input type="number" min="0" placeholder="Ej: 1200" class="w-1/2 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded input-W" value="0">
+                    </div>
+                </div>
+
+                <h3 class="text-sm font-bold mt-6 mb-2">Configuración Técnica</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[11px] font-semibold mb-1 uppercase text-gray-500">Grosor de Corte (Kerf) mm</label>
+                        <input type="number" id="kerf" value="3" min="0" step="0.1" class="w-full text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded p-2 focus:outline-none focus:border-primary">
+                    </div>
+                    <div class="flex items-end pb-1">
+                        <label class="flex items-center space-x-2 text-[11px] font-semibold cursor-pointer uppercase text-gray-500">
+                            <input type="checkbox" id="allow-rotation" checked class="form-checkbox text-primary rounded h-4 w-4 bg-gray-50 dark:bg-slate-900 border-gray-300 dark:border-slate-600">
+                            <span>Permitir Rotación</span>
+                        </label>
                     </div>
                 </div>
             </div>
 
             <!-- TARJETA: PIEZAS A CORTAR -->
             <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700">
-                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Partes Requeridas</h2>
+                <h2 class="text-xl font-bold mb-4 border-b border-gray-200 dark:border-slate-600 pb-2">Lista de Retazos Requeridos</h2>
                 <div class="grid grid-cols-12 gap-2 mb-2 px-1">
                     <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Largo</span>
                     <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Ancho</span>
                     <span class="col-span-2 text-[10px] font-semibold uppercase text-gray-500">Cant</span>
-                    <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Etiqueta</span>
+                    <span class="col-span-3 text-[10px] font-semibold uppercase text-gray-500">Nota</span>
                     <span class="col-span-1 text-[10px] font-semibold uppercase text-gray-500"></span>
                 </div>
                 <!-- Contenedor dinámico de Partes -->
                 <div id="parts-container" class="space-y-3">
-                    <!-- Fila Base -->
                     <div class="flex gap-2 items-center part-row">
                         <input type="number" min="1" class="w-3/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-L" required>
                         <input type="number" min="0" value="0" class="w-3/12 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-W" required>
@@ -115,50 +104,52 @@
 
                 <div class="mt-8 pt-4 border-t border-gray-200 dark:border-slate-600">
                     <button id="btn-optimize" class="w-full bg-primary hover:bg-blue-600 text-white font-bold text-lg py-3 rounded shadow-lg transition transform hover:scale-[1.02]">
-                        OPTIMIZAR CORTE
+                        CALCULAR COMPRA
                     </button>
-                    <p class="text-xs text-center text-gray-500 mt-2">Algoritmo FFD (First Fit Decreasing)</p>
                 </div>
             </div>
-
         </div>
         
-        <!-- PANEL DERECHO: RESULTADOS (7 Columnas) -->
-        <div class="col-span-1 lg:col-span-7 flex flex-col h-full">
+        <!-- PANEL DERECHO: RESULTADOS (8 Columnas) -->
+        <div class="col-span-1 lg:col-span-8 flex flex-col h-full">
             <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 flex-grow h-full flex flex-col" id="export-area">
                 
                 <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-bold">Plan de Corte</h2>
+                    <h2 class="text-2xl font-bold">Reporte de Compra y Corte</h2>
                     <button id="btn-pdf" class="hidden bg-slate-800 dark:bg-white text-white dark:text-slate-900 px-4 py-2 rounded text-sm font-bold shadow hover:opacity-90 transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Exportar PDF
+                        Imprimir / PDF
                     </button>
                 </div>
 
-                <!-- ESTADÍSTICAS GLOBALES -->
-                <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 hidden">
-                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
-                        <p class="text-xs text-gray-500 font-bold uppercase">Piezas Cortadas</p>
-                        <p class="text-2xl font-extrabold text-primary" id="stat-cut">0</p>
+                <!-- ESTADÍSTICAS GLOBALES DE COMPRAS -->
+                <div id="stats-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 hidden">
+                    <div class="bg-blue-50 dark:bg-slate-900 p-5 rounded border-2 border-blue-200 dark:border-slate-600 text-center shadow-inner">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 font-bold uppercase mb-1">Debes Comprar</p>
+                        <p class="text-4xl font-extrabold text-primary" id="stat-buy">0</p>
+                        <p class="text-xs text-gray-500 font-semibold mt-1" id="stat-buy-desc">Láminas / Tubos</p>
                     </div>
-                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
-                        <p class="text-xs text-gray-500 font-bold uppercase">Paneles/Tubos Usados</p>
-                        <p class="text-2xl font-extrabold text-gray-800 dark:text-white" id="stat-used">0</p>
+                    <div class="bg-gray-50 dark:bg-slate-900 p-5 rounded border border-gray-200 dark:border-slate-600 text-center">
+                        <p class="text-sm text-gray-500 font-bold uppercase mb-1">Piezas a Cortar</p>
+                        <p class="text-3xl font-extrabold text-gray-800 dark:text-white" id="stat-cut">0</p>
+                        <p class="text-xs text-gray-400 font-semibold mt-1">Totales</p>
                     </div>
-                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
-                        <p class="text-xs text-gray-500 font-bold uppercase">% Desperdicio</p>
-                        <p class="text-2xl font-extrabold text-red-500" id="stat-waste">0%</p>
-                    </div>
-                    <div class="bg-gray-50 dark:bg-slate-900 p-4 rounded border border-gray-200 dark:border-slate-600 text-center">
-                        <p class="text-xs text-gray-500 font-bold uppercase">Sin encajar</p>
-                        <p class="text-2xl font-extrabold text-orange-500" id="stat-missing">0</p>
+                    <div class="bg-red-50 dark:bg-slate-900 p-5 rounded border border-red-200 dark:border-slate-600 text-center">
+                        <p class="text-sm text-gray-500 font-bold uppercase mb-1">% de Merma / Polvo</p>
+                        <p class="text-3xl font-extrabold text-red-500" id="stat-waste">0%</p>
+                        <p class="text-xs text-gray-400 font-semibold mt-1">Desperdicio</p>
                     </div>
                 </div>
 
+                <div id="leftovers-container" class="mb-6 hidden">
+                    <h3 class="font-bold text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-slate-600 pb-1 mb-2">Sobrantes Reutilizables</h3>
+                    <div id="leftovers-list" class="flex flex-wrap gap-2"></div>
+                </div>
+
                 <!-- RENDER VISUAL DE CORTES -->
-                <div id="render-container" class="flex-grow overflow-y-auto space-y-8 pb-10">
+                <div id="render-container" class="flex-grow overflow-y-auto space-y-8 pb-10 pr-2">
                     <div class="flex h-full w-full justify-center items-center text-gray-400 text-sm italic">
-                        Configure sus materiales y piezas, luego presione Optimizar Corte.
+                        Declare el largo del tubo comercial que consigue, añada los recortes deseados y el algoritmo calculará sus necesidades.
                     </div>
                 </div>
 
