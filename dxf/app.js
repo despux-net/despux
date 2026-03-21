@@ -445,11 +445,42 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
                     if(ent.vertices && ent.vertices.length > 0) {
+                        ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
                         for (let i = 0; i < ent.vertices.length; i++) {
-                            if (i === 0) ctx.moveTo(ent.vertices[i].x, ent.vertices[i].y);
-                            else ctx.lineTo(ent.vertices[i].x, ent.vertices[i].y);
+                            let v1 = ent.vertices[i];
+                            let nextIdx = (i + 1 < ent.vertices.length) ? i + 1 : ((ent.shape || ent.closed) ? 0 : -1);
+                            
+                            if (nextIdx !== -1) {
+                                let v2 = ent.vertices[nextIdx];
+                                if (v1.bulge && Math.abs(v1.bulge) > 0.0001) {
+                                    // Bulge arc math
+                                    let bulge = v1.bulge;
+                                    let dx = v2.x - v1.x;
+                                    let dy = v2.y - v1.y;
+                                    let dist = Math.hypot(dx, dy);
+                                    if(dist > 0.0001) {
+                                        let absBulge = Math.abs(bulge);
+                                        let r = (dist / 2) * (absBulge*absBulge + 1) / (2 * absBulge);
+                                        let angleP1P2 = Math.atan2(dy, dx);
+                                        let sgn = Math.sign(bulge);
+                                        let centerDist = (1 - absBulge*absBulge) / (2 * absBulge) * (dist / 2);
+                                        
+                                        let centerAngle = angleP1P2 - sgn * (Math.PI / 2);
+                                        let cx = v1.x + dx/2 + centerDist * Math.cos(centerAngle);
+                                        let cy = v1.y + dy/2 + centerDist * Math.sin(centerAngle);
+                                        
+                                        let startA = Math.atan2(v1.y - cy, v1.x - cx);
+                                        let endA = Math.atan2(v2.y - cy, v2.x - cx);
+                                        
+                                        ctx.arc(cx, cy, r, startA, endA, bulge < 0); // ccw si bulge < 0 por flipped Y
+                                    } else {
+                                        ctx.lineTo(v2.x, v2.y);
+                                    }
+                                } else {
+                                    if (i > 0 || nextIdx === 0) ctx.lineTo(v2.x, v2.y);
+                                }
+                            }
                         }
-                        if (ent.shape || ent.closed) ctx.closePath();
                         ctx.stroke();
                     }
                 } else if (ent.type === 'CIRCLE') {
@@ -459,26 +490,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else if (ent.type === 'ARC') {
                     if(ent.center && ent.radius !== undefined) {
-                        const startA = (ent.startAngle || 0) * Math.PI/180;
-                        const endA = (ent.endAngle || 0) * Math.PI/180;
+                        // Canvas scale(1, -1) significa false = CCW
+                        let startA = (ent.startAngle || 0) * Math.PI/180;
+                        let endA = (ent.endAngle || 0) * Math.PI/180;
                         ctx.arc(ent.center.x, ent.center.y, ent.radius, startA, endA, false);
                         ctx.stroke();
                     }
                 } else if (ent.type === 'ELLIPSE') {
                     if(ctx.ellipse && ent.center && ent.majorAxisEndPoint) {
-                        const rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
-                        const ry = rx * (ent.axisRatio || 1);
+                        let rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
+                        let ry = rx * (ent.axisRatio || 1);
                         let rot = Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x);
-                        const startA = ent.startAngle !== undefined ? ent.startAngle : 0;
-                        const endA = ent.endAngle !== undefined ? ent.endAngle : (Math.PI * 2);
+                        let startA = ent.startAngle !== undefined ? ent.startAngle : 0;
+                        let endA = ent.endAngle !== undefined ? ent.endAngle : (Math.PI * 2);
                         ctx.ellipse(ent.center.x, ent.center.y, rx, ry, rot, startA, endA, false);
                         ctx.stroke();
                     }
                 } else if (ent.type === 'SPLINE') {
-                    if(ent.controlPoints && ent.controlPoints.length > 0) {
-                        ctx.moveTo(ent.controlPoints[0].x, ent.controlPoints[0].y);
-                        for (let i = 1; i < ent.controlPoints.length; i++) {
-                            ctx.lineTo(ent.controlPoints[i].x, ent.controlPoints[i].y);
+                    // Muchos DXF guardan la curva exacta en FitPoints, si no, caemos a controlPoints
+                    let pts = ent.fitPoints && ent.fitPoints.length > 0 ? ent.fitPoints : ent.controlPoints;
+                    if(pts && pts.length > 0) {
+                        ctx.moveTo(pts[0].x, pts[0].y);
+                        // Dibujado alámbrico interpolado que cubre huecos perfectos 
+                        for (let i = 1; i < pts.length; i++) {
+                            ctx.lineTo(pts[i].x, pts[i].y);
                         }
                         ctx.stroke();
                     }
@@ -494,7 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             } catch(e) {
-                // Prevención de cuelgues - si la entidad corrupta falla, ignoramos y seguimos pintando el 99% restante del plano
                 console.warn("Fallo visualizando entidad DXF:", ent, e);
             }
         }
