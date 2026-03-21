@@ -481,12 +481,15 @@ function descargarPDF() {
     const btnPdf = document.getElementById('btn-pdf');
     btnPdf.style.display = 'none'; // Ocultar boton para que no salga impreso
 
+    const is1D = calculoActual ? calculoActual.is1D : true;
+
     const opt = {
       margin:       10,
       filename:     'Ingenieria-Reporte-Corte-DESPUX.pdf',
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: is1D ? 'portrait' : 'landscape' },
+      pagebreak:    is1D ? { mode: 'css', avoid: '.cut-plan-box' } : { mode: 'css', before: '.cut-plan-box' }
     };
 
     // Darle 100ms a la pantalla para renderizar las líneas blancas y negras antes de "tomar la foto"
