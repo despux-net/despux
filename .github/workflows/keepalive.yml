@@ -1,0 +1,29 @@
+name: Supabase Keep-Alive Ping
+
+on:
+  schedule:
+    # Se ejecuta todos los dias a las 10:00 UTC
+    # Esto garantiza que el proyecto gratuito de Supabase nunca llegue a 7 días de inactividad
+    - cron: '0 10 * * *'
+  workflow_dispatch: # Permite ejecutar el script on-demand manualmente desde GitHub
+
+jobs:
+  ping-database:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hacer Ping a Supabase (REST API)
+        run: |
+          echo "Haciendo ping a la tabla proyectos para mantener despierto Supabase..."
+          
+          # Hacemos una petición pequeña que consume cero recursos pero registra actividad de red en la DB
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            --request GET "https://rromxmhmadwtshughttz.supabase.co/rest/v1/proyectos?select=id&limit=1" \
+            --header "apikey: sb_publishable_GAusBaYKd_ED7Vl1_k7VRA_MZI8BEwu" \
+            --header "Authorization: Bearer sb_publishable_GAusBaYKd_ED7Vl1_k7VRA_MZI8BEwu")
+          
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "Ping exitoso. Supabase respondió 200 OK."
+          else
+            echo "Error al conectar con Supabase. Código HTTP: $HTTP_STATUS"
+            exit 1
+          fi
