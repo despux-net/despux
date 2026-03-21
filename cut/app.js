@@ -364,7 +364,19 @@ function renderPlanos(isBwMode = false) {
         if (unitsToBuy === 0) return;
     }
 
-    usedStocks.forEach(stock => {
+    if (isBwMode && unitsToBuy > 0) {
+        const pbInitial = document.createElement('div');
+        pbInitial.className = 'html2pdf__page-break';
+        renderContainer.appendChild(pbInitial);
+    }
+
+    usedStocks.forEach((stock, idx) => {
+        if (isBwMode && !is1D && idx > 0) {
+            const pbSheet = document.createElement('div');
+            pbSheet.className = 'html2pdf__page-break';
+            renderContainer.appendChild(pbSheet);
+        }
+
         const panelDiv = document.createElement('div');
         panelDiv.className = 'cut-plan-box';
         
@@ -489,7 +501,7 @@ function descargarPDF() {
       image:        { type: 'jpeg', quality: 0.98 },
       html2canvas:  { scale: 2, useCORS: true },
       jsPDF:        { unit: 'mm', format: 'a4', orientation: is1D ? 'portrait' : 'landscape' },
-      pagebreak:    is1D ? { mode: 'css', avoid: '.cut-plan-box' } : { mode: 'css', before: '.cut-plan-box' }
+      pagebreak:    { mode: ['css', 'legacy'], avoid: '.cut-plan-box' }
     };
 
     // Darle 100ms a la pantalla para renderizar las líneas blancas y negras antes de "tomar la foto"
