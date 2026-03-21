@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         layers = {};
         userMeasurements = [];
         measuringState = 0;
-        document.getElementById('measurement-overlay').classList.add('hidden');
+        tempMeasurePt = null;
 
         let minX = Infinity, maxX = -Infinity;
         let minY = Infinity, maxY = -Infinity;
@@ -257,22 +257,60 @@ document.addEventListener('DOMContentLoaded', () => {
         } 
         else if (viewOpts.tool === 'measure') {
             const wrld = screenToWorld(mouseX, mouseY);
+            
+            // CIRCLE AUTODETECT
+            let foundCircle = null;
+            const hitTol = 15 / viewOpts.zoom; // 15 pixels de tolerancia en el mundo
+            
+            function searchForCircle(ents, ox=0, oy=0, scale=1) {
+                ents.forEach(ent => {
+                    if (layers[ent.layer] && !layers[ent.layer].visible) return;
+                    if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
+                        const cx = (ent.center.x * scale) + ox;
+                        const cy = (ent.center.y * scale) + oy;
+                        const r = ent.radius * scale;
+                        const distToCenter = Math.hypot(wrld.x - cx, wrld.y - cy);
+                        const distToEdge = Math.abs(distToCenter - r);
+                        
+                        if (distToCenter < hitTol || distToEdge < hitTol) {
+                            foundCircle = { x: cx, y: cy, r: r };
+                        }
+                    } else if (ent.type === 'INSERT') {
+                        const block = dxfData.blocks[ent.name];
+                        if (block && block.entities) {
+                            searchForCircle(block.entities, ox + ent.position.x, oy + ent.position.y, scale * (ent.scaleX || 1));
+                        }
+                    }
+                });
+            }
+            if (measuringState === 0) searchForCircle(entities);
+
+            if (foundCircle) {
+                // Diámetro Automático detectado
+                userMeasurements.push({
+                    type: 'diameter',
+                    cx: foundCircle.x,
+                    cy: foundCircle.y,
+                    r: foundCircle.r
+                });
+                requestRender();
+                return;
+            }
+
+            // MEDICIÖN LINEAL DE 2 PUNTOS
             if(measuringState === 0 || measuringState === 2) {
-                // Iniciar medición
                 measuringState = 1;
                 tempMeasurePt = wrld;
-                document.getElementById('meas-inst').innerText = 'Haga click en P2 (Final).';
             } else if(measuringState === 1) {
-                // Finalizar Medición
                 const dist = Math.sqrt(Math.pow(wrld.x - tempMeasurePt.x, 2) + Math.pow(wrld.y - tempMeasurePt.y, 2));
                 userMeasurements.push({
+                    type: 'line',
                     x1: tempMeasurePt.x, y1: tempMeasurePt.y,
                     x2: wrld.x, y2: wrld.y,
                     dist: dist
                 });
                 measuringState = 2;
                 tempMeasurePt = null;
-                document.getElementById('meas-inst').innerText = 'Medición guardada. Clic para otra.';
             }
             requestRender();
         }
@@ -294,9 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
             viewOpts.offsetY = my - viewOpts.dragStartY;
             requestRender();
         } else if (viewOpts.tool === 'measure' && measuringState === 1 && tempMeasurePt) {
-            // Actualizar vista previa en vivo de la linea de medicion
-            const dist = Math.sqrt(Math.pow(wP.x - tempMeasurePt.x, 2) + Math.pow(wP.y - tempMeasurePt.y, 2));
-            document.getElementById('meas-result').innerText = dist.toFixed(2);
             requestRender();
         }
     });
@@ -343,24 +378,21 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(viewOpts.tool === 'pan') {
                 canvas.style.cursor = 'grab';
-                document.getElementById('measurement-overlay').classList.add('hidden');
                 document.getElementById('tool-hint').innerText = "Rueda ratón para Zoom. Arrastrar para Moverse.";
             } else {
                 canvas.style.cursor = 'crosshair';
-                document.getElementById('measurement-overlay').classList.remove('hidden');
                 measuringState = 0;
-                document.getElementById('meas-inst').innerText = "Haga click en P1 (Inicio).";
-                document.getElementById('meas-result').innerText = "0.00";
-                document.getElementById('tool-hint').innerText = "Click origen y destino para medir línea.";
+                tempMeasurePt = null;
+                document.getElementById('tool-hint').innerText = "Click origen y destino para medir línea, o click en círculo para Diámetro.";
             }
+            requestRender();
         });
     });
 
     document.getElementById('btn-clear-meas').addEventListener('click', () => {
         userMeasurements = [];
         measuringState = 0;
-        document.getElementById('meas-inst').innerText = "Haga click en P1 (Inicio).";
-        document.getElementById('meas-result').innerText = "0.00";
+        tempMeasurePt = null;
         requestRender();
     });
 
@@ -388,86 +420,127 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isDark = htmlElement.classList.contains('dark');
         
-        entities.forEach(ent => {
-            // Checkeo de visibilidad de layer
+        // PINTADO DE ENTIDADES DXF RECURSIVO CON TRANSFORMACIONES NATIVAS 
+        ctx.save();
+        ctx.translate(viewOpts.offsetX, viewOpts.offsetY);
+        // Canvas invierte Y => usaremos -viewOpts.zoom p/ flip vertical
+        ctx.scale(viewOpts.zoom, -viewOpts.zoom);
+        // Grosor estricto invariable pese al zoom:
+        ctx.lineWidth = 1.0 / Math.abs(viewOpts.zoom);
+        ctx.lineJoin = 'round';
+
+        function drawEntity(ent) {
             if (layers[ent.layer] && !layers[ent.layer].visible) return;
 
             ctx.beginPath();
-            
-            // Asignacion de Color Inteligente (los DXFs asignan paletas ACI, vamos a mapear o limpiar si colisiona con el fondo)
-            let drawColor = ent.color === 256 || !ent.color ? '#000000' : 'black'; 
-            // Esto se refinará si el DXFParser retorna int o null colorIndex, para 256 suele ser byLayer
-            // Simplificación radical CAD: Lineas principales contra el tema
             ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.8)';
             ctx.fillStyle = ctx.strokeStyle;
-            ctx.lineWidth = 1;
 
             if (ent.type === 'LINE') {
-                const start = worldToScreen(ent.vertices[0].x, ent.vertices[0].y);
-                const end = worldToScreen(ent.vertices[1].x, ent.vertices[1].y);
-                ctx.moveTo(start.x, start.y);
-                ctx.lineTo(end.x, end.y);
+                ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
+                ctx.lineTo(ent.vertices[1].x, ent.vertices[1].y);
                 ctx.stroke();
-            } 
-            else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
+            } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
                 for (let i = 0; i < ent.vertices.length; i++) {
-                    const vl = worldToScreen(ent.vertices[i].x, ent.vertices[i].y);
-                    if (i === 0) ctx.moveTo(vl.x, vl.y);
-                    else ctx.lineTo(vl.x, vl.y);
+                    if (i === 0) ctx.moveTo(ent.vertices[i].x, ent.vertices[i].y);
+                    else ctx.lineTo(ent.vertices[i].x, ent.vertices[i].y);
                 }
-                if (ent.shape || ent.closed) { // Si es pline cerrada
-                   const vl0 = worldToScreen(ent.vertices[0].x, ent.vertices[0].y);
-                   ctx.lineTo(vl0.x, vl0.y);
+                if (ent.shape || ent.closed) ctx.closePath();
+                ctx.stroke();
+            } else if (ent.type === 'CIRCLE') {
+                ctx.arc(ent.center.x, ent.center.y, ent.radius, 0, Math.PI*2);
+                ctx.stroke();
+            } else if (ent.type === 'ARC') {
+                // scale(1, -1) revierte giro, usar counterclockwise=false para CCW standard
+                ctx.arc(ent.center.x, ent.center.y, ent.radius, ent.startAngle * Math.PI/180, ent.endAngle * Math.PI/180, false);
+                ctx.stroke();
+            } else if (ent.type === 'ELLIPSE') {
+                if(ctx.ellipse) {
+                    const rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
+                    const ry = rx * ent.axisRatio;
+                    let rot = Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x);
+                    ctx.ellipse(ent.center.x, ent.center.y, rx, ry, rot, ent.startAngle, ent.endAngle, false);
+                    ctx.stroke();
                 }
-                ctx.stroke();
+            } else if (ent.type === 'SPLINE') {
+                if(ent.controlPoints && ent.controlPoints.length > 0) {
+                    ctx.moveTo(ent.controlPoints[0].x, ent.controlPoints[0].y);
+                    for (let i = 1; i < ent.controlPoints.length; i++) {
+                        ctx.lineTo(ent.controlPoints[i].x, ent.controlPoints[i].y);
+                    }
+                    ctx.stroke();
+                }
+            } else if (ent.type === 'INSERT') {
+                const block = dxfData.blocks && dxfData.blocks[ent.name];
+                if (block && block.entities) {
+                    ctx.save();
+                    ctx.translate(ent.position.x, ent.position.y);
+                    ctx.scale(ent.scaleX || 1, ent.scaleY || 1);
+                    ctx.rotate((ent.rotation || 0) * Math.PI/180);
+                    block.entities.forEach(blockEnt => drawEntity(blockEnt));
+                    ctx.restore();
+                }
             }
-            else if (ent.type === 'CIRCLE') {
-                const c = worldToScreen(ent.center.x, ent.center.y);
-                const r = ent.radius * viewOpts.zoom;
-                ctx.arc(c.x, c.y, r, 0, 2 * Math.PI);
-                ctx.stroke();
-            }
-            else if (ent.type === 'ARC') {
-                const c = worldToScreen(ent.center.x, ent.center.y);
-                const r = ent.radius * viewOpts.zoom;
-                // Arc ángulos en DXF están en grados, CounterClockWise
-                const startA = -ent.startAngle * Math.PI / 180; 
-                const endA = -ent.endAngle * Math.PI / 180;
-                ctx.arc(c.x, c.y, r, startA, endA, true); // true por la inversion del eje Y
-                ctx.stroke();
-            }
-        });
+        }
+        entities.forEach(ent => drawEntity(ent));
+        ctx.restore();
 
-        // Capa interactiva de Cotas (Rojas/Azules vistosas)
+        // ----------------------------------------------------
+        // RE-HABILITAMOS SCREEN SPACE PARA TEXTOS Y MEDIDAS  
+        // ----------------------------------------------------
         ctx.lineWidth = 2;
         userMeasurements.forEach(m => {
-            const p1 = worldToScreen(m.x1, m.y1);
-            const p2 = worldToScreen(m.x2, m.y2);
-            
-            ctx.beginPath();
-            ctx.strokeStyle = '#ef4444'; // Red-500
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
-            
-            // Puntos / Ticks
-            ctx.fillStyle = '#ef4444';
-            ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, Math.PI*2); ctx.fill();
-            
-            // Texto Dimen 
-            const mx = (p1.x + p2.x) / 2;
-            const my = (p1.y + p2.y) / 2;
-            ctx.font = 'bold 13px monospace';
-            ctx.fillStyle = isDark ? '#fca5a5' : '#7f1d1d';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(m.dist.toFixed(2), mx, my - 6);
+            if (m.type === 'diameter') {
+                const pc = worldToScreen(m.cx, m.cy);
+                const pr = m.r * viewOpts.zoom;
+                
+                // Dimensión de diámetro en pantalla
+                ctx.beginPath(); ctx.strokeStyle = '#3b82f6'; // blue-500
+                ctx.arc(pc.x, pc.y, pr, 0, Math.PI*2); ctx.stroke();
+                
+                const valstr = "Ø:" + (m.r * 2).toFixed(2);
+                ctx.font = 'bold 14px monospace'; ctx.fillStyle = isDark ? '#93c5fd' : '#1e3a8a';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                
+                const w = ctx.measureText(valstr).width;
+                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
+                ctx.fillRect(pc.x - w/2 - 4, pc.y - 12, w + 8, 24);
+                ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
+                ctx.fillText(valstr, pc.x, pc.y);
+
+            } else {
+                const p1 = worldToScreen(m.x1, m.y1);
+                const p2 = worldToScreen(m.x2, m.y2);
+                
+                ctx.beginPath();
+                ctx.strokeStyle = '#ef4444'; // Red-500
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, Math.PI*2); ctx.fill();
+                
+                const mx = (p1.x + p2.x) / 2;
+                const my = (p1.y + p2.y) / 2;
+                ctx.font = 'bold 13px monospace';
+                const valstr = m.dist.toFixed(2);
+                
+                const w = ctx.measureText(valstr).width;
+                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+                ctx.fillRect(mx - w/2 - 2, my - 16, w + 4, 18);
+                
+                ctx.fillStyle = isDark ? '#fca5a5' : '#7f1d1d';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                ctx.fillText(valstr, mx, my - 2);
+            }
         });
 
-        // Dibujar prev pre-preview vivo si está trazando
+        // Trazado de línea de cotado vivo flotante
         if (viewOpts.tool === 'measure' && measuringState === 1 && tempMeasurePt) {
             const p1 = worldToScreen(tempMeasurePt.x, tempMeasurePt.y);
+            const wP = screenToWorld(mousePosScr.x, mousePosScr.y);
             
             ctx.beginPath();
             ctx.setLineDash([5, 5]);
@@ -476,6 +549,17 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.lineTo(mousePosScr.x, mousePosScr.y);
             ctx.stroke();
             ctx.setLineDash([]);
+
+            // Etiqueta flotante en el mouse
+            const dist = Math.sqrt(Math.pow(wP.x - tempMeasurePt.x, 2) + Math.pow(wP.y - tempMeasurePt.y, 2));
+            const valstr = dist.toFixed(2);
+            ctx.font = 'bold 14px monospace'; ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
+            ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+            const w = ctx.measureText(valstr).width;
+            ctx.fillStyle = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
+            ctx.fillRect(mousePosScr.x + 12, mousePosScr.y - 20, w + 8, 20);
+            ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
+            ctx.fillText(valstr, mousePosScr.x + 16, mousePosScr.y - 4);
         }
     }
 
