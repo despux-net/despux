@@ -15,21 +15,23 @@ document.addEventListener('DOMContentLoaded', () => {
         htmlElement.classList.toggle('dark');
         htmlElement.classList.toggle('light');
         localStorage.theme = htmlElement.classList.contains('dark') ? 'dark' : 'light';
-        requestRender(); // repintar canvas si cambian colores
+        requestRender();
     });
 
     // --- VARIABLES DE ESTADO CAD ---
-    let dxfData = null;       // Objeto devuelto por DxfParser
-    let entities = [];        // Lista plana filtrada para render
-    let layers = {};          // { LayerName: { color: "#FFF", visible: true } }
+    // polylinesByLayer: { "LayerName": [ [[x1,y1],[x2,y2],...], ... ] }
+    let polylinesByLayer = {};
+    // rawEntities: original parsed entities para búsqueda de círculos en la herramienta de medida
+    let rawEntities = [];
+    let layers = {};          // { LayerName: { visible: true } }
     let boundingBox = { minX:0, maxX:0, minY:0, maxY:0 };
     
-    let userMeasurements = []; // [{x1,y1,x2,y2, dist}]
-    let measuringState = 0;    // 0: inactivo, 1: esperando click A, 2: esperando click B
-    let tempMeasurePt = null;  // {x,y}
-    let renderRequested = false; // flag de animacion requestAnimationFrame
+    let userMeasurements = []; // [{type:'line'|'diameter', ...}]
+    let measuringState = 0;    // 0: inactivo, 1: esperando click B
+    let tempMeasurePt = null;  // {x, y}  en coords mundo
+    let renderRequested = false;
 
-    // --- CONFIGURACIÓN DE VISTA CANVAS (PAN/ZOOM) ---
+    // --- CONFIGURACIÓN DE VISTA CANVAS ---
     const canvas = document.getElementById('cad-canvas');
     const ctx = canvas.getContext('2d');
     const wrapper = document.getElementById('canvas-wrapper');
@@ -41,8 +43,11 @@ document.addEventListener('DOMContentLoaded', () => {
         isDragging: false,
         dragStartX: 0,
         dragStartY: 0,
-        tool: 'pan' // 'pan' o 'measure'
+        tool: 'pan'
     };
+
+    // Posición actual del mouse en pixels de pantalla (para línea flotante preview)
+    let mousePosScr = { x: 0, y: 0 };
 
     // --- MANEJO DE REDIMENSIONAMIENTO ---
     function resizeCanvas() {
@@ -53,14 +58,26 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
+    // --- COORDENADAS ---
+    function worldToScreen(wx, wy) {
+        return {
+            x: wx * viewOpts.zoom + viewOpts.offsetX,
+            y: -wy * viewOpts.zoom + viewOpts.offsetY
+        };
+    }
+    function screenToWorld(sx, sy) {
+        return {
+            x: (sx - viewOpts.offsetX) / viewOpts.zoom,
+            y: -(sy - viewOpts.offsetY) / viewOpts.zoom
+        };
+    }
+
     // --- EVENTO: SUBIDA DE ARCHIVO Y DRAG&DROP ---
     const fileInput = document.getElementById('dxf-file');
     const loader = document.getElementById('loading-overlay');
 
     function procesarArchivo(file) {
         if (!file) return;
-
-        // Mostrar loader visualmente obligando al navegador a repintar antes de bloquear el hilo
         loader.style.display = 'flex';
         
         setTimeout(() => {
@@ -68,44 +85,61 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = (evt) => {
                 const fileContent = evt.target.result;
                 try {
-                    const Parser = window.DxfParser;
-                    if (!Parser) throw new Error("La librería DXF no cargó correctamente del CDN.");
+                    // *** NUEVA LIBRERÍA: dxf@4.1.0 (bjnortier) via unpkg ***
+                    // expone window.dxf con Helper, toPolylines, toSVG, etc.
+                    const DxfHelper = window.dxf;
+                    if (!DxfHelper) throw new Error("La librería DXF avanzada no cargó correctamente.");
                     
-                    const parser = new Parser();
-                    dxfData = parser.parseSync(fileContent);
-                    console.log("DXF Parsed:", dxfData);
-                    procesarDXF(dxfData);
+                    const helper = new DxfHelper(fileContent);
+                    
+                    // toPolylines() resuelve INTERNAMENTE: 
+                    //   INSERT/Bloques, Bulges en LWPOLYLINE, SPLINEs, ARCs, ELLIPSEs, etc.
+                    // Devuelve: { entities: [ { type, layer, vertices:[[x,y],...] } ] }
+                    const polylinesResult = helper.toPolylines();
+                    
+                    // También obtenemos el parse "crudo" para detectar círculos en la herramienta de medida
+                    const parsed = helper.parsed;
+                    rawEntities = (parsed && parsed.entities) ? parsed.entities : [];
+                    
+                    procesarPolylines(polylinesResult);
+
                 } catch(err) {
                     console.error("Error del Parser DXF:", err);
-                    alert("Aviso: Fallo al leer el archivo. Es probable que sea una versión muy nueva o contenga entidades complejas.\nPor favor ábralo en AutoCAD u otro CAD y guárdelo explícitamente como 'DXF AutoCAD 2013' (formato ASCII).");
+                    
+                    // Fallback: intentar con dxf-parser legacy si la librería nueva falla
+                    try {
+                        console.warn("Intentando fallback con dxf-parser legacy...");
+                        const LegacyParser = window.DxfParser;
+                        if (!LegacyParser) throw new Error("Tampoco está la librería legacy.");
+                        const parser = new LegacyParser();
+                        const legacyData = parser.parseSync(evt.target.result);
+                        rawEntities = legacyData.entities || [];
+                        procesarLegacyFallback(legacyData);
+                    } catch(err2) {
+                        alert("Error al procesar el archivo DXF.\nPor favor guárdelo desde AutoCAD como 'DXF AutoCAD 2013 (ASCII)'.\n\nDetalle: " + err.message);
+                    }
                 } finally {
                     loader.style.display = 'none';
-                    if(fileInput) fileInput.value = ''; 
+                    if(fileInput) fileInput.value = '';
                 }
             };
             reader.readAsText(file);
-        }, 300); // Dar 300ms a la UI para que renderice el loader
+        }, 300);
     }
 
     fileInput.addEventListener('change', (e) => procesarArchivo(e.target.files[0]));
 
-    // --- MANEJO DRAG AND DROP ---
     wrapper.addEventListener('dragover', (e) => {
         e.preventDefault();
-        wrapper.style.opacity = '0.7';
-        wrapper.style.border = '4px dashed #3b82f6';
+        wrapper.style.outline = '4px dashed #3b82f6';
     });
-    
     wrapper.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        wrapper.style.opacity = '1';
-        wrapper.style.border = 'none';
+        wrapper.style.outline = 'none';
     });
-    
     wrapper.addEventListener('drop', (e) => {
         e.preventDefault();
-        wrapper.style.opacity = '1';
-        wrapper.style.border = 'none';
+        wrapper.style.outline = 'none';
         const file = e.dataTransfer.files[0];
         if (file && file.name.toLowerCase().endsWith('.dxf')) {
             procesarArchivo(file);
@@ -114,14 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- PROCESADO LOGICO ---
-    function procesarDXF(data) {
-        if(!data.entities || data.entities.length === 0) {
+    // --- PROCESADO CON LIBRERÍA NUEVA (dxf@4.1.0 toPolylines) ---
+    function procesarPolylines(polylinesResult) {
+        if (!polylinesResult || !polylinesResult.entities || polylinesResult.entities.length === 0) {
+            // Si no hay entidades, podría ser que el archivo esté vacío
             alert("El archivo no contiene entidades vectoriales legibles.");
             return;
         }
 
-        entities = data.entities;
+        polylinesByLayer = {};
         layers = {};
         userMeasurements = [];
         measuringState = 0;
@@ -130,243 +165,225 @@ document.addEventListener('DOMContentLoaded', () => {
         let minX = Infinity, maxX = -Infinity;
         let minY = Infinity, maxY = -Infinity;
 
-        // Extraer Layers y Calcular Bounding Box Aprox
-        // Los DXF de DxfParser extraen los colores basados en la paleta de AutoCAD (ACI) a Hexadecimal.
-        Object.keys(data.tables.layer.layers).forEach(lname => {
-            layers[lname] = { 
-                visible: true, 
-                color: true // DxfParser ya vincula colores
-            };
-        });
-
-        entities.forEach(ent => {
-            // Asegurar que la layer exista
-            if (!layers[ent.layer]) layers[ent.layer] = { visible: true };
-            
-            // Calculo rápido de límites
-            if(ent.type === 'LINE' && ent.vertices) {
-                ent.vertices.forEach(v => {
-                    if (v.x < minX) minX = v.x;
-                    if (v.x > maxX) maxX = v.x;
-                    if (v.y < minY) minY = v.y;
-                    if (v.y > maxY) maxY = v.y;
-                });
-            } else if(ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
-                if(ent.vertices) {
-                    ent.vertices.forEach(v => {
-                        if (v.x < minX) minX = v.x;
-                        if (v.x > maxX) maxX = v.x;
-                        if (v.y < minY) minY = v.y;
-                        if (v.y > maxY) maxY = v.y;
-                    });
-                }
-            } else if (ent.type === 'CIRCLE') {
-                if (ent.center && ent.radius) {
-                    minX = Math.min(minX, ent.center.x - ent.radius);
-                    maxX = Math.max(maxX, ent.center.x + ent.radius);
-                    minY = Math.min(minY, ent.center.y - ent.radius);
-                    maxY = Math.max(maxY, ent.center.y + ent.radius);
-                }
+        polylinesResult.entities.forEach(ent => {
+            const layerName = ent.layer || '0';
+            if (!layers[layerName]) {
+                layers[layerName] = { visible: true };
+                polylinesByLayer[layerName] = [];
             }
-        });
-
-        // Si falló el bbox, asegurar default
-        if(minX === Infinity) { minX = -100; maxX = 100; minY = -100; maxY = 100; }
-        
-        boundingBox = { minX, maxX, minY, maxY };
-        
-        dibujarMenuCapas();
-        resetCamera();
-    }
-
-    function dibujarMenuCapas() {
-        const container = document.getElementById('layers-container');
-        document.getElementById('layers-count').innerText = Object.keys(layers).length;
-        container.innerHTML = '';
-
-        Object.keys(layers).forEach(layerName => {
-            const div = document.createElement('div');
-            div.className = 'layer-item flex items-center justify-between bg-gray-100 dark:bg-slate-700/50 px-3 py-2 rounded text-sm border border-gray-200 dark:border-slate-600';
-            
-            const labelStr = layerName.length > 20 ? layerName.substring(0,18)+'...' : layerName;
-            
-            div.innerHTML = `
-                <span class="font-mono text-gray-700 dark:text-gray-300 pointer-events-none truncate" title="${layerName}">${labelStr}</span>
-                <input type="checkbox" class="w-4 h-4 rounded" checked data-layer="${layerName}">
-            `;
-            
-            div.querySelector('input').addEventListener('change', (e) => {
-                layers[layerName].visible = e.target.checked;
-                requestRender();
-            });
-            
-            container.appendChild(div);
-        });
-    }
-
-    function resetCamera() {
-        if(!dxfData) return;
-        const boxW = boundingBox.maxX - boundingBox.minX;
-        const boxH = boundingBox.maxY - boundingBox.minY;
-        
-        // Ajustamos la escala para que quepa todo el bounding box en el viewport actual (con padding)
-        const scaleX = (canvas.width * 0.85) / Math.abs(boxW || 1);
-        const scaleY = (canvas.height * 0.85) / Math.abs(boxH || 1);
-        viewOpts.zoom = Math.min(scaleX, scaleY);
-        
-        // Centramos
-        const cx = boundingBox.minX + (boxW/2);
-        const cy = boundingBox.minY + (boxH/2);
-        
-        viewOpts.offsetX = (canvas.width/2) - (cx * viewOpts.zoom);
-        // Recordar que en Y, AutoCAD crece hacia arriba, Canvas hacia abajo. Invertiremos Y visualmente en render
-        viewOpts.offsetY = (canvas.height/2) + (cy * viewOpts.zoom); 
-
-        requestRender();
-    }
-
-    document.getElementById('btn-reset-view').addEventListener('click', resetCamera);
-
-    // --- INTERACCION MOUSE (PAN/ZOOM/MEASURE) ---
-    function worldToScreen(x, y) {
-        return {
-            x: (x * viewOpts.zoom) + viewOpts.offsetX,
-            y: (-y * viewOpts.zoom) + viewOpts.offsetY // AutoCAD Y is inverted from Canvas Y
-        };
-    }
-    
-    function screenToWorld(sx, sy) {
-        return {
-            x: (sx - viewOpts.offsetX) / viewOpts.zoom,
-            y: -(sy - viewOpts.offsetY) / viewOpts.zoom
-        }
-    }
-
-    let mousePosScr = {x:0, y:0};
-
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
-        if (viewOpts.tool === 'pan') {
-            viewOpts.isDragging = true;
-            viewOpts.dragStartX = mouseX - viewOpts.offsetX;
-            viewOpts.dragStartY = mouseY - viewOpts.offsetY;
-            canvas.style.cursor = 'grabbing';
-        } 
-        else if (viewOpts.tool === 'measure') {
-            const wrld = screenToWorld(mouseX, mouseY);
-            
-            // CIRCLE AUTODETECT
-            let foundCircle = null;
-            const hitTol = 15 / viewOpts.zoom; // 15 pixels de tolerancia en el mundo
-            
-            function searchForCircle(ents, ox=0, oy=0, scale=1) {
-                ents.forEach(ent => {
-                    if (layers[ent.layer] && !layers[ent.layer].visible) return;
-                    if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
-                        const cx = (ent.center.x * scale) + ox;
-                        const cy = (ent.center.y * scale) + oy;
-                        const r = ent.radius * scale;
-                        const distToCenter = Math.hypot(wrld.x - cx, wrld.y - cy);
-                        const distToEdge = Math.abs(distToCenter - r);
-                        
-                        if (distToCenter < hitTol || distToEdge < hitTol) {
-                            foundCircle = { x: cx, y: cy, r: r };
-                        }
-                    } else if (ent.type === 'INSERT') {
-                        const block = dxfData.blocks[ent.name];
-                        if (block && block.entities) {
-                            searchForCircle(block.entities, ox + ent.position.x, oy + ent.position.y, scale * (ent.scaleX || 1));
-                        }
+            if (ent.vertices && ent.vertices.length > 0) {
+                polylinesByLayer[layerName].push(ent.vertices);
+                ent.vertices.forEach(([x, y]) => {
+                    if (isFinite(x) && isFinite(y)) {
+                        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
                     }
                 });
             }
-            if (measuringState === 0) searchForCircle(entities);
+        });
 
-            if (foundCircle) {
-                // Diámetro Automático detectado
-                userMeasurements.push({
-                    type: 'diameter',
-                    cx: foundCircle.x,
-                    cy: foundCircle.y,
-                    r: foundCircle.r
+        if(!isFinite(minX)) { minX=0; maxX=100; minY=0; maxY=100; }
+        boundingBox = { minX, maxX, minY, maxY };
+
+        construirPanelCapas();
+        encuadrarTodo();
+    }
+
+    // --- FALLBACK CON LIBRERÍA LEGACY (dxf-parser) CUANDO LA NUEVA FALLA ---
+    function procesarLegacyFallback(data) {
+        const ents = data.entities || [];
+        polylinesByLayer = {};
+        layers = {};
+        userMeasurements = [];
+        measuringState = 0;
+        tempMeasurePt = null;
+
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+
+        function addPoly(layerName, pts) {
+            if (!layers[layerName]) {
+                layers[layerName] = { visible: true };
+                polylinesByLayer[layerName] = [];
+            }
+            if (pts.length > 0) {
+                polylinesByLayer[layerName].push(pts);
+                pts.forEach(([x, y]) => {
+                    if (isFinite(x) && isFinite(y)) {
+                        minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                        minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                    }
                 });
+            }
+        }
+
+        function processEntLegacy(ent, ox=0, oy=0, scale=1) {
+            const ln = ent.layer || '0';
+            if (ent.type === 'LINE' && ent.vertices && ent.vertices.length >= 2) {
+                addPoly(ln, ent.vertices.map(v => [v.x * scale + ox, v.y * scale + oy]));
+            } else if ((ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') && ent.vertices) {
+                // Convierte vértices con posible bulge a segmentos
+                let pts = [];
+                for (let i = 0; i < ent.vertices.length; i++) {
+                    let v1 = ent.vertices[i];
+                    let nextIdx = (i + 1 < ent.vertices.length) ? i + 1 : ((ent.shape || ent.closed) ? 0 : -1);
+                    pts.push([v1.x * scale + ox, v1.y * scale + oy]);
+                    if (nextIdx !== -1 && v1.bulge && Math.abs(v1.bulge) > 0.0001) {
+                        let v2 = ent.vertices[nextIdx];
+                        let bulge = v1.bulge;
+                        let dx = v2.x - v1.x;
+                        let dy = v2.y - v1.y;
+                        let dist = Math.hypot(dx, dy);
+                        if (dist > 0.0001) {
+                            let absBulge = Math.abs(bulge);
+                            let r = (dist / 2) * (absBulge*absBulge + 1) / (2 * absBulge);
+                            let angleP1P2 = Math.atan2(dy, dx);
+                            let sgn = Math.sign(bulge);
+                            let centerDist = (1 - absBulge*absBulge) / (2 * absBulge) * (dist / 2);
+                            let centerAngle = angleP1P2 - sgn * (Math.PI / 2);
+                            let cx = v1.x + dx/2 + centerDist * Math.cos(centerAngle);
+                            let cy = v1.y + dy/2 + centerDist * Math.sin(centerAngle);
+                            let startA = Math.atan2(v1.y - cy, v1.x - cx);
+                            let endA = Math.atan2(v2.y - cy, v2.x - cx);
+                            let ccw = bulge > 0;
+                            // Generar puntos de arco
+                            let steps = Math.ceil(Math.abs(r) * 20);
+                            steps = Math.max(8, Math.min(steps, 64));
+                            let da = endA - startA;
+                            if (ccw && da < 0) da += 2 * Math.PI;
+                            if (!ccw && da > 0) da -= 2 * Math.PI;
+                            for (let s = 1; s <= steps; s++) {
+                                let a = startA + (da * s / steps);
+                                pts.push([(cx + r * Math.cos(a)) * scale + ox, (cy + r * Math.sin(a)) * scale + oy]);
+                            }
+                        }
+                    }
+                }
+                if (ent.shape || ent.closed) pts.push(pts[0]);
+                addPoly(ln, pts);
+            } else if (ent.type === 'CIRCLE' && ent.center) {
+                let steps = 64;
+                let r = ent.radius;
+                let pts = [];
+                for (let s = 0; s <= steps; s++) {
+                    let a = s * 2 * Math.PI / steps;
+                    pts.push([(ent.center.x + r * Math.cos(a)) * scale + ox, (ent.center.y + r * Math.sin(a)) * scale + oy]);
+                }
+                addPoly(ln, pts);
+            } else if (ent.type === 'ARC' && ent.center) {
+                let r = ent.radius;
+                let startA = (ent.startAngle || 0) * Math.PI / 180;
+                let endA = (ent.endAngle || 0) * Math.PI / 180;
+                let da = endA - startA;
+                if (da <= 0) da += 2 * Math.PI;
+                let steps = Math.max(8, Math.ceil(da * r * 5));
+                steps = Math.min(steps, 64);
+                let pts = [];
+                for (let s = 0; s <= steps; s++) {
+                    let a = startA + da * s / steps;
+                    pts.push([(ent.center.x + r * Math.cos(a)) * scale + ox, (ent.center.y + r * Math.sin(a)) * scale + oy]);
+                }
+                addPoly(ln, pts);
+            } else if (ent.type === 'SPLINE') {
+                let pts2 = ent.fitPoints && ent.fitPoints.length > 0 ? ent.fitPoints : ent.controlPoints;
+                if (pts2 && pts2.length > 0) {
+                    addPoly(ln, pts2.map(p => [p.x * scale + ox, p.y * scale + oy]));
+                }
+            } else if (ent.type === 'INSERT') {
+                const block = data.blocks && data.blocks[ent.name];
+                if (block && block.entities) {
+                    let bx = ent.position ? ent.position.x : 0;
+                    let by = ent.position ? ent.position.y : 0;
+                    block.entities.forEach(be => processEntLegacy(be, ox + bx * scale, oy + by * scale, scale * (ent.scaleX || 1)));
+                }
+            }
+        }
+
+        ents.forEach(ent => processEntLegacy(ent));
+        if (!isFinite(minX)) { minX=0; maxX=100; minY=0; maxY=100; }
+        boundingBox = { minX, maxX, minY, maxY };
+        construirPanelCapas();
+        encuadrarTodo();
+    }
+
+    // --- PANEL DE CAPAS ---
+    function construirPanelCapas() {
+        const container = document.getElementById('layers-container');
+        const countEl = document.getElementById('layers-count');
+        container.innerHTML = '';
+        const layerNames = Object.keys(layers);
+        countEl.textContent = layerNames.length;
+
+        layerNames.forEach(ln => {
+            const item = document.createElement('div');
+            item.className = 'layer-item flex items-center justify-between gap-2 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-slate-700/80 text-sm cursor-pointer';
+            const left = document.createElement('div');
+            left.className = 'flex items-center gap-2 overflow-hidden';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = layers[ln].visible;
+            cb.addEventListener('change', () => {
+                layers[ln].visible = cb.checked;
                 requestRender();
-                return;
-            }
+            });
+            const nameEl = document.createElement('span');
+            nameEl.textContent = ln;
+            nameEl.className = 'truncate text-xs';
+            nameEl.title = ln;
+            left.appendChild(cb);
+            left.appendChild(nameEl);
+            item.appendChild(left);
+            item.addEventListener('click', (e) => {
+                if (e.target !== cb) {
+                    cb.checked = !cb.checked;
+                    layers[ln].visible = cb.checked;
+                    requestRender();
+                }
+            });
+            container.appendChild(item);
+        });
+    }
 
-            // MEDICIÖN LINEAL DE 2 PUNTOS
-            if(measuringState === 0 || measuringState === 2) {
-                measuringState = 1;
-                tempMeasurePt = wrld;
-            } else if(measuringState === 1) {
-                const dist = Math.sqrt(Math.pow(wrld.x - tempMeasurePt.x, 2) + Math.pow(wrld.y - tempMeasurePt.y, 2));
-                userMeasurements.push({
-                    type: 'line',
-                    x1: tempMeasurePt.x, y1: tempMeasurePt.y,
-                    x2: wrld.x, y2: wrld.y,
-                    dist: dist
-                });
-                measuringState = 2;
-                tempMeasurePt = null;
-            }
-            requestRender();
-        }
-    });
+    // --- ENCUADRAR TODO ---
+    function encuadrarTodo() {
+        const { minX, maxX, minY, maxY } = boundingBox;
+        const drawW = maxX - minX;
+        const drawH = maxY - minY;
+        const canW = canvas.width;
+        const canH = canvas.height;
+        const pad = 40;
 
-    canvas.addEventListener('mousemove', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        mousePosScr = {x:mx, y:my};
-        
-        // Indicador coordenadas HUD
-        const wP = screenToWorld(mx, my);
-        document.getElementById('coord-x').innerText = wP.x.toFixed(2);
-        document.getElementById('coord-y').innerText = wP.y.toFixed(2);
-
-        if (viewOpts.isDragging && viewOpts.tool === 'pan') {
-            viewOpts.offsetX = mx - viewOpts.dragStartX;
-            viewOpts.offsetY = my - viewOpts.dragStartY;
-            requestRender();
-        } else if (viewOpts.tool === 'measure' && measuringState === 1 && tempMeasurePt) {
-            requestRender();
-        }
-    });
-
-    canvas.addEventListener('mouseup', () => {
-        viewOpts.isDragging = false;
-        if(viewOpts.tool === 'pan') canvas.style.cursor = 'grab';
-    });
-    canvas.addEventListener('mouseleave', () => {
-        viewOpts.isDragging = false;
-        if(viewOpts.tool === 'pan') canvas.style.cursor = 'grab';
-    });
-
-    // Zoom (Scroll Mueda) centrada en el mouse
-    canvas.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        
-        // Convertimos a coordenadas mundo ANTES de cambiar zoom
-        const wp = screenToWorld(mx, my);
-        
-        const zoomFactor = 1.1;
-        if (e.deltaY < 0) {
-            viewOpts.zoom *= zoomFactor; // acercar
+        if (drawW === 0 || drawH === 0) {
+            viewOpts.zoom = 1;
+            viewOpts.offsetX = canW / 2;
+            viewOpts.offsetY = canH / 2;
         } else {
-            viewOpts.zoom /= zoomFactor; // alejar
+            let scale = Math.min((canW - pad*2) / drawW, (canH - pad*2) / drawH);
+            viewOpts.zoom = scale;
+            // Centro del dibujo en coords de pantalla
+            let cx = (minX + maxX) / 2;
+            let cy = (minY + maxY) / 2;
+            viewOpts.offsetX = canW / 2 - cx * scale;
+            // Para Y invertido:
+            viewOpts.offsetY = canH / 2 + cy * scale;
         }
-        
-        // Recalcular offset para que el punto (wP.x, wP.y) se mantenga bajo el ratón (mx, my)
-        viewOpts.offsetX = mx - (wp.x * viewOpts.zoom);
-        viewOpts.offsetY = my + (wp.y * viewOpts.zoom);
-
         requestRender();
+    }
+
+    // --- BOTONES ---
+    document.getElementById('btn-reset-view').addEventListener('click', encuadrarTodo);
+
+    document.getElementById('btn-export-pdf').addEventListener('click', () => {
+        if (!window.html2pdf) { alert("Librería PDF no cargada."); return; }
+        const opt = {
+            margin: 10,
+            filename: 'plano-dxf.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        };
+        const el = document.getElementById('canvas-wrapper');
+        window.html2pdf().set(opt).from(el).save();
     });
 
     // --- CAMBIO DE HERRAMIENTA ---
@@ -383,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 canvas.style.cursor = 'crosshair';
                 measuringState = 0;
                 tempMeasurePt = null;
-                document.getElementById('tool-hint').innerText = "Click origen y destino para medir línea, o click en círculo para Diámetro.";
+                document.getElementById('tool-hint').innerText = "Click en círculo para Diámetro, o 2 clicks para medir distancia.";
             }
             requestRender();
         });
@@ -396,9 +413,123 @@ document.addEventListener('DOMContentLoaded', () => {
         requestRender();
     });
 
-    // --- RENDER ENGINE (HTML5 CANVAS) ---
+    // --- INTERACCIÓN CON EL CANVAS (Mouse) ---
+    let mouseX = 0, mouseY = 0;
+
+    canvas.addEventListener('mousedown', (e) => {
+        const mx = e.offsetX;
+        const my = e.offsetY;
+        mouseX = mx; mouseY = my;
+
+        if (viewOpts.tool === 'pan') {
+            viewOpts.isDragging = true;
+            viewOpts.dragStartX = mx - viewOpts.offsetX;
+            viewOpts.dragStartY = my - viewOpts.offsetY;
+            canvas.style.cursor = 'grabbing';
+        } else if (viewOpts.tool === 'measure') {
+            const wrld = screenToWorld(mx, my);
+
+            // --- AUTODETECCIÓN DE CÍRCULOS ---
+            let foundCircle = null;
+            const hitTol = 15 / viewOpts.zoom;
+
+            // Buscar en entidades crudas (dxf-parser legacy o el parsed de bjnortier)
+            function searchCircles(ents, ox=0, oy=0, scale=1, data=null) {
+                ents.forEach(ent => {
+                    if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
+                        const cx = (ent.center ? ent.center.x : 0) * scale + ox;
+                        const cy = (ent.center ? ent.center.y : 0) * scale + oy;
+                        const r = (ent.radius || 0) * scale;
+                        const dCenter = Math.hypot(wrld.x - cx, wrld.y - cy);
+                        const dEdge = Math.abs(dCenter - r);
+                        if (dCenter < hitTol || dEdge < hitTol) {
+                            if (!foundCircle || r < foundCircle.r) {
+                                foundCircle = { cx, cy, r };
+                            }
+                        }
+                    } else if (ent.type === 'INSERT' && data) {
+                        const block = data.blocks && data.blocks[ent.name];
+                        if (block && block.entities) {
+                            let bx = ent.position ? ent.position.x : 0;
+                            let by = ent.position ? ent.position.y : 0;
+                            searchCircles(block.entities, ox + bx * scale, oy + by * scale, scale * (ent.scaleX || 1), data);
+                        }
+                    }
+                });
+            }
+            if (rawEntities.length > 0) {
+                // Necesitamos el objeto parsed completo para resolver bloques
+                let parsedRef = null;
+                try {
+                    const DxfHelper = window.dxf;
+                    if (DxfHelper && DxfHelper._lastParsed) parsedRef = DxfHelper._lastParsed;
+                } catch(e) {}
+                searchCircles(rawEntities, 0, 0, 1, parsedRef);
+            }
+
+            if (foundCircle) {
+                userMeasurements.push({ type: 'diameter', cx: foundCircle.cx, cy: foundCircle.cy, r: foundCircle.r });
+                requestRender();
+                return;
+            }
+
+            // --- MEDICIÓN LINEAL ---
+            if (measuringState === 0 || measuringState === 2) {
+                measuringState = 1;
+                tempMeasurePt = wrld;
+            } else if (measuringState === 1) {
+                const dist = Math.hypot(wrld.x - tempMeasurePt.x, wrld.y - tempMeasurePt.y);
+                userMeasurements.push({ type: 'line', x1: tempMeasurePt.x, y1: tempMeasurePt.y, x2: wrld.x, y2: wrld.y, dist });
+                measuringState = 2;
+                tempMeasurePt = null;
+            }
+            requestRender();
+        }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        const mx = e.offsetX;
+        const my = e.offsetY;
+        mouseX = mx; mouseY = my;
+        mousePosScr = { x: mx, y: my };
+
+        const wP = screenToWorld(mx, my);
+        document.getElementById('coord-x').innerText = wP.x.toFixed(2);
+        document.getElementById('coord-y').innerText = wP.y.toFixed(2);
+
+        if (viewOpts.isDragging && viewOpts.tool === 'pan') {
+            viewOpts.offsetX = mx - viewOpts.dragStartX;
+            viewOpts.offsetY = my - viewOpts.dragStartY;
+            requestRender();
+        } else if (viewOpts.tool === 'measure' && measuringState === 1 && tempMeasurePt) {
+            requestRender(); // repintar preview de línea flotante
+        }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+        viewOpts.isDragging = false;
+        if (viewOpts.tool === 'pan') canvas.style.cursor = 'grab';
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 0.85 : 1.15;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const worldBefore = screenToWorld(mx, my);
+        viewOpts.zoom *= delta;
+        viewOpts.zoom = Math.max(0.001, Math.min(50000, viewOpts.zoom));
+        const screenAfter = worldToScreen(worldBefore.x, worldBefore.y);
+        viewOpts.offsetX += mx - screenAfter.x;
+        viewOpts.offsetY += my - screenAfter.y;
+        requestRender();
+    }, { passive: false });
+
+    // --- RENDER ENGINE ---
     function requestRender() {
-        if(!renderRequested) {
+        if (!renderRequested) {
             renderRequested = true;
             requestAnimationFrame(render);
         }
@@ -406,156 +537,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function render() {
         renderRequested = false;
-        const isBwPdf = false; // Preparacion estructural en caso de PDF
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const isDark = htmlElement.classList.contains('dark');
 
-        ctx.clearRect(0,0, canvas.width, canvas.height);
-
-        if (!dxfData) {
-            ctx.fillStyle = htmlElement.classList.contains('dark') ? '#9ca3af' : '#6b7280';
+        const hasContent = Object.keys(polylinesByLayer).length > 0;
+        if (!hasContent) {
+            ctx.fillStyle = isDark ? '#9ca3af' : '#6b7280';
             ctx.font = 'italic 14px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText("Espacio de Trabajo Vacío. Seleccione un .DXF de la barra lateral.", canvas.width/2, canvas.height/2);
             return;
         }
 
-        const isDark = htmlElement.classList.contains('dark');
-        
-        // PINTADO DE ENTIDADES DXF RECURSIVO CON TRANSFORMACIONES NATIVAS 
-        ctx.save();
-        ctx.translate(viewOpts.offsetX, viewOpts.offsetY);
-        // Canvas invierte Y => usaremos -viewOpts.zoom p/ flip vertical
-        ctx.scale(viewOpts.zoom, -viewOpts.zoom);
-        // Grosor estricto invariable pese al zoom:
-        ctx.lineWidth = 1.0 / Math.abs(viewOpts.zoom);
+        // ---- DIBUJO DE POLILÍNEAS ----
+        // Las polylines en polylinesByLayer son [[x,y], [x,y], ...] en coords mundo DXF
+        // Aplicamos worldToScreen directamente en lugar de transforms de canvas (más predecible)
+        const strokeColor = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.85)';
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 1;
         ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
 
-        function drawEntity(ent) {
-            try {
-                if (layers[ent.layer] && !layers[ent.layer].visible) return;
-
+        Object.keys(polylinesByLayer).forEach(ln => {
+            if (!layers[ln] || !layers[ln].visible) return;
+            const polylines = polylinesByLayer[ln];
+            polylines.forEach(pts => {
+                if (!pts || pts.length < 2) return;
                 ctx.beginPath();
-                ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.8)';
-                ctx.fillStyle = ctx.strokeStyle;
-
-                if (ent.type === 'LINE') {
-                    if(ent.vertices && ent.vertices.length >= 2) {
-                        ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
-                        ctx.lineTo(ent.vertices[1].x, ent.vertices[1].y);
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
-                    if(ent.vertices && ent.vertices.length > 0) {
-                        ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
-                        for (let i = 0; i < ent.vertices.length; i++) {
-                            let v1 = ent.vertices[i];
-                            let nextIdx = (i + 1 < ent.vertices.length) ? i + 1 : ((ent.shape || ent.closed) ? 0 : -1);
-                            
-                            if (nextIdx !== -1) {
-                                let v2 = ent.vertices[nextIdx];
-                                if (v1.bulge && Math.abs(v1.bulge) > 0.0001) {
-                                    // Bulge arc math
-                                    let bulge = v1.bulge;
-                                    let dx = v2.x - v1.x;
-                                    let dy = v2.y - v1.y;
-                                    let dist = Math.hypot(dx, dy);
-                                    if(dist > 0.0001) {
-                                        let absBulge = Math.abs(bulge);
-                                        let r = (dist / 2) * (absBulge*absBulge + 1) / (2 * absBulge);
-                                        let angleP1P2 = Math.atan2(dy, dx);
-                                        let sgn = Math.sign(bulge);
-                                        let centerDist = (1 - absBulge*absBulge) / (2 * absBulge) * (dist / 2);
-                                        
-                                        let centerAngle = angleP1P2 - sgn * (Math.PI / 2);
-                                        let cx = v1.x + dx/2 + centerDist * Math.cos(centerAngle);
-                                        let cy = v1.y + dy/2 + centerDist * Math.sin(centerAngle);
-                                        
-                                        let startA = Math.atan2(v1.y - cy, v1.x - cx);
-                                        let endA = Math.atan2(v2.y - cy, v2.x - cx);
-                                        
-                                        ctx.arc(cx, cy, r, startA, endA, bulge < 0); // ccw si bulge < 0 por flipped Y
-                                    } else {
-                                        ctx.lineTo(v2.x, v2.y);
-                                    }
-                                } else {
-                                    if (i > 0 || nextIdx === 0) ctx.lineTo(v2.x, v2.y);
-                                }
-                            }
-                        }
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'CIRCLE') {
-                    if(ent.center && ent.radius !== undefined) {
-                        ctx.arc(ent.center.x, ent.center.y, ent.radius, 0, Math.PI*2);
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'ARC') {
-                    if(ent.center && ent.radius !== undefined) {
-                        // Canvas scale(1, -1) significa false = CCW
-                        let startA = (ent.startAngle || 0) * Math.PI/180;
-                        let endA = (ent.endAngle || 0) * Math.PI/180;
-                        ctx.arc(ent.center.x, ent.center.y, ent.radius, startA, endA, false);
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'ELLIPSE') {
-                    if(ctx.ellipse && ent.center && ent.majorAxisEndPoint) {
-                        let rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
-                        let ry = rx * (ent.axisRatio || 1);
-                        let rot = Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x);
-                        let startA = ent.startAngle !== undefined ? ent.startAngle : 0;
-                        let endA = ent.endAngle !== undefined ? ent.endAngle : (Math.PI * 2);
-                        ctx.ellipse(ent.center.x, ent.center.y, rx, ry, rot, startA, endA, false);
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'SPLINE') {
-                    // Muchos DXF guardan la curva exacta en FitPoints, si no, caemos a controlPoints
-                    let pts = ent.fitPoints && ent.fitPoints.length > 0 ? ent.fitPoints : ent.controlPoints;
-                    if(pts && pts.length > 0) {
-                        ctx.moveTo(pts[0].x, pts[0].y);
-                        // Dibujado alámbrico interpolado que cubre huecos perfectos 
-                        for (let i = 1; i < pts.length; i++) {
-                            ctx.lineTo(pts[i].x, pts[i].y);
-                        }
-                        ctx.stroke();
-                    }
-                } else if (ent.type === 'INSERT') {
-                    const block = dxfData.blocks && dxfData.blocks[ent.name];
-                    if (block && block.entities) {
-                        ctx.save();
-                        if(ent.position) ctx.translate(ent.position.x || 0, ent.position.y || 0);
-                        ctx.scale(ent.scaleX !== undefined ? ent.scaleX : 1, ent.scaleY !== undefined ? ent.scaleY : 1);
-                        ctx.rotate((ent.rotation || 0) * Math.PI/180);
-                        block.entities.forEach(blockEnt => drawEntity(blockEnt));
-                        ctx.restore();
-                    }
+                let moved = false;
+                for (let i = 0; i < pts.length; i++) {
+                    const [wx, wy] = pts[i];
+                    if (!isFinite(wx) || !isFinite(wy)) continue;
+                    const s = worldToScreen(wx, wy);
+                    if (!moved) { ctx.moveTo(s.x, s.y); moved = true; }
+                    else ctx.lineTo(s.x, s.y);
                 }
-            } catch(e) {
-                console.warn("Fallo visualizando entidad DXF:", ent, e);
-            }
-        }
-        entities.forEach(ent => drawEntity(ent));
-        ctx.restore();
+                ctx.stroke();
+            });
+        });
 
-        // ----------------------------------------------------
-        // RE-HABILITAMOS SCREEN SPACE PARA TEXTOS Y MEDIDAS  
-        // ----------------------------------------------------
+        // ---- MEDIDAS / COTAS ----
         ctx.lineWidth = 2;
         userMeasurements.forEach(m => {
             if (m.type === 'diameter') {
                 const pc = worldToScreen(m.cx, m.cy);
                 const pr = m.r * viewOpts.zoom;
                 
-                // Dimensión de diámetro en pantalla
-                ctx.beginPath(); ctx.strokeStyle = '#3b82f6'; // blue-500
-                ctx.arc(pc.x, pc.y, pr, 0, Math.PI*2); ctx.stroke();
-                
-                const valstr = "Ø:" + (m.r * 2).toFixed(2);
-                ctx.font = 'bold 14px monospace'; ctx.fillStyle = isDark ? '#93c5fd' : '#1e3a8a';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                
-                const w = ctx.measureText(valstr).width;
-                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)';
-                ctx.fillRect(pc.x - w/2 - 4, pc.y - 12, w + 8, 24);
+                ctx.beginPath();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.arc(pc.x, pc.y, pr, 0, Math.PI*2);
+                ctx.stroke();
+
+                const valstr = "Ø " + (m.r * 2).toFixed(3);
+                ctx.font = 'bold 13px monospace';
+                const tw = ctx.measureText(valstr).width;
+                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.75)';
+                ctx.fillRect(pc.x - tw/2 - 4, pc.y - 10, tw + 8, 20);
                 ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillText(valstr, pc.x, pc.y);
 
             } else {
@@ -563,54 +603,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 const p2 = worldToScreen(m.x2, m.y2);
                 
                 ctx.beginPath();
-                ctx.strokeStyle = '#ef4444'; // Red-500
+                ctx.strokeStyle = '#ef4444';
                 ctx.moveTo(p1.x, p1.y);
                 ctx.lineTo(p2.x, p2.y);
                 ctx.stroke();
-                
+
                 ctx.fillStyle = '#ef4444';
                 ctx.beginPath(); ctx.arc(p1.x, p1.y, 4, 0, Math.PI*2); ctx.fill();
                 ctx.beginPath(); ctx.arc(p2.x, p2.y, 4, 0, Math.PI*2); ctx.fill();
-                
-                const mx = (p1.x + p2.x) / 2;
-                const my = (p1.y + p2.y) / 2;
+
+                const mx2 = (p1.x + p2.x) / 2;
+                const my2 = (p1.y + p2.y) / 2;
+                const valstr = m.dist.toFixed(3);
                 ctx.font = 'bold 13px monospace';
-                const valstr = m.dist.toFixed(2);
-                
-                const w = ctx.measureText(valstr).width;
-                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
-                ctx.fillRect(mx - w/2 - 2, my - 16, w + 4, 18);
-                
+                const tw = ctx.measureText(valstr).width;
+                ctx.fillStyle = isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)';
+                ctx.fillRect(mx2 - tw/2 - 3, my2 - 15, tw + 6, 16);
                 ctx.fillStyle = isDark ? '#fca5a5' : '#7f1d1d';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                ctx.fillText(valstr, mx, my - 2);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(valstr, mx2, my2 - 2);
             }
         });
 
-        // Trazado de línea de cotado vivo flotante
+        // ---- PREVIEW LÍNEA FLOTANTE DE MEDIDA ----
         if (viewOpts.tool === 'measure' && measuringState === 1 && tempMeasurePt) {
             const p1 = worldToScreen(tempMeasurePt.x, tempMeasurePt.y);
             const wP = screenToWorld(mousePosScr.x, mousePosScr.y);
-            
+            const dist = Math.hypot(wP.x - tempMeasurePt.x, wP.y - tempMeasurePt.y);
+
             ctx.beginPath();
             ctx.setLineDash([5, 5]);
             ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 1.5;
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(mousePosScr.x, mousePosScr.y);
             ctx.stroke();
             ctx.setLineDash([]);
 
-            // Etiqueta flotante en el mouse
-            const dist = Math.sqrt(Math.pow(wP.x - tempMeasurePt.x, 2) + Math.pow(wP.y - tempMeasurePt.y, 2));
-            const valstr = dist.toFixed(2);
-            ctx.font = 'bold 14px monospace'; ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
-            ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-            const w = ctx.measureText(valstr).width;
-            ctx.fillStyle = isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)';
-            ctx.fillRect(mousePosScr.x + 12, mousePosScr.y - 20, w + 8, 20);
+            const valstr = dist.toFixed(3);
+            ctx.font = 'bold 13px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            const tw = ctx.measureText(valstr).width;
+            ctx.fillStyle = isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)';
+            ctx.fillRect(mousePosScr.x + 12, mousePosScr.y - 20, tw + 8, 20);
             ctx.fillStyle = isDark ? '#93c5fd' : '#1d4ed8';
             ctx.fillText(valstr, mousePosScr.x + 16, mousePosScr.y - 4);
         }
     }
 
+    // Iniciar primer render vacío
+    requestRender();
 });
