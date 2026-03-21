@@ -306,7 +306,7 @@ function renderPlanos(isBwMode = false) {
         const ctx = canvas.getContext('2d');
         const scaleBy = 1000 / stockL; 
         canvas.width = stockL * scaleBy;
-        canvas.height = is1D ? (120 * scaleBy) : (effStockW * scaleBy);
+        canvas.height = is1D ? (250 * scaleBy) : (effStockW * scaleBy);
         
         // Pintar fondo del tubo o lámina
         ctx.fillStyle = isBwMode ? '#ffffff' : (is1D ? '#d1d5db' : '#e5e7eb'); 
@@ -335,7 +335,8 @@ function renderPlanos(isBwMode = false) {
 
             // Texto Centro
             ctx.fillStyle = isBwMode ? '#000000' : '#0f172a';
-            ctx.font = `bold ${Math.max(11, 14*scaleBy)}px sans-serif`;
+            let fontSize = is1D ? Math.max(16, 24*scaleBy) : Math.max(11, 14*scaleBy);
+            ctx.font = `bold ${fontSize}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
