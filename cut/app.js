@@ -296,7 +296,7 @@ function optimizar() {
         const ctx = canvas.getContext('2d');
         const scaleBy = 1000 / stockL; 
         canvas.width = stockL * scaleBy;
-        canvas.height = is1D ? (100 * scaleBy) : (effStockW * scaleBy);
+        canvas.height = is1D ? (120 * scaleBy) : (effStockW * scaleBy);
         
         // Pintar el fondo del tubo o lamina (Gris metálico o madera)
         ctx.fillStyle = is1D ? '#d1d5db' : '#e5e7eb'; // Tailwind gray-300 o 200
@@ -323,19 +323,25 @@ function optimizar() {
 
             // Texto Centro Ficha
             ctx.fillStyle = '#0f172a'; // Casi negro
-            ctx.font = `bold ${Math.max(12, 18*scaleBy)}px sans-serif`;
+            ctx.font = `bold ${Math.max(11, 14*scaleBy)}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
-            let txt = `${part.lbl}`;
-            let dimTxt = part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}${is1D ? 'mm' : 'x' + part.realH}`;
-            
-            // Separación vertical constante para evitar colisión de textos
-            ctx.fillText(txt, cx + cw/2, cy + ch/2 - 8);
-            if(ch > (25*scaleBy) || is1D) {
-                ctx.font = `bold ${Math.max(10, 12*scaleBy)}px sans-serif`;
-                ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + 8);
+            if (is1D) {
+                // Tuberías: Etiqueta y longitud en una sola línea combinada
+                let combinedTxt = `${part.lbl} (${part.realW}mm)`;
+                ctx.fillText(combinedTxt, cx + cw/2, cy + ch/2);
+            } else {
+                let txt = `${part.lbl}`;
+                let dimTxt = part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}x${part.realH}`;
+                
+                // Paneles 2D: Separación vertical constante para que quepa bien
+                ctx.fillText(txt, cx + cw/2, cy + ch/2 - 8);
+                if(ch > (25*scaleBy)) {
+                    ctx.font = `bold ${Math.max(10, 12*scaleBy)}px sans-serif`;
+                    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                    ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + 8);
+                }
             }
         });
 
