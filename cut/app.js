@@ -396,9 +396,9 @@ function renderPlanos(isBwMode = false) {
 
         stock.parts.forEach(part => {
             let cx = part.fit.x * scaleBy;
-            let cy = part.fit.y * scaleBy;
             let cw = part.rotated ? part.realH * scaleBy : part.realW * scaleBy;
-            let ch = part.rotated ? part.realW * scaleBy : part.realH * scaleBy;
+            let cy = is1D ? 0 : part.fit.y * scaleBy;
+            let ch = is1D ? canvas.height : (part.rotated ? part.realW * scaleBy : part.realH * scaleBy);
 
             // Ficha
             ctx.fillStyle = isBwMode ? '#ffffff' : part.color; 
@@ -411,7 +411,7 @@ function renderPlanos(isBwMode = false) {
 
             // Texto Centro
             ctx.fillStyle = isBwMode ? '#000000' : '#0f172a';
-            let fontSize = is1D ? Math.max(16, 24*scaleBy) : Math.max(11, 14*scaleBy);
+            let fontSize = is1D ? Math.max(18, 28*scaleBy) : Math.max(11, 14*scaleBy);
             ctx.font = `bold ${fontSize}px sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
