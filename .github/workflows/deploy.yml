@@ -50,4 +50,5 @@ jobs:
           publish_dir: ./
           # Rama destino de GitHub Pages
           publish_branch: gh-pages
+          cname: despux.net
           commit_message: "Despliegue Automático: CSS/JS minificado [skip ci]"
