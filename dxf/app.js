@@ -430,56 +430,72 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineJoin = 'round';
 
         function drawEntity(ent) {
-            if (layers[ent.layer] && !layers[ent.layer].visible) return;
+            try {
+                if (layers[ent.layer] && !layers[ent.layer].visible) return;
 
-            ctx.beginPath();
-            ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.8)';
-            ctx.fillStyle = ctx.strokeStyle;
+                ctx.beginPath();
+                ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.8)';
+                ctx.fillStyle = ctx.strokeStyle;
 
-            if (ent.type === 'LINE') {
-                ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
-                ctx.lineTo(ent.vertices[1].x, ent.vertices[1].y);
-                ctx.stroke();
-            } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
-                for (let i = 0; i < ent.vertices.length; i++) {
-                    if (i === 0) ctx.moveTo(ent.vertices[i].x, ent.vertices[i].y);
-                    else ctx.lineTo(ent.vertices[i].x, ent.vertices[i].y);
-                }
-                if (ent.shape || ent.closed) ctx.closePath();
-                ctx.stroke();
-            } else if (ent.type === 'CIRCLE') {
-                ctx.arc(ent.center.x, ent.center.y, ent.radius, 0, Math.PI*2);
-                ctx.stroke();
-            } else if (ent.type === 'ARC') {
-                // scale(1, -1) revierte giro, usar counterclockwise=false para CCW standard
-                ctx.arc(ent.center.x, ent.center.y, ent.radius, ent.startAngle * Math.PI/180, ent.endAngle * Math.PI/180, false);
-                ctx.stroke();
-            } else if (ent.type === 'ELLIPSE') {
-                if(ctx.ellipse) {
-                    const rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
-                    const ry = rx * ent.axisRatio;
-                    let rot = Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x);
-                    ctx.ellipse(ent.center.x, ent.center.y, rx, ry, rot, ent.startAngle, ent.endAngle, false);
-                    ctx.stroke();
-                }
-            } else if (ent.type === 'SPLINE') {
-                if(ent.controlPoints && ent.controlPoints.length > 0) {
-                    ctx.moveTo(ent.controlPoints[0].x, ent.controlPoints[0].y);
-                    for (let i = 1; i < ent.controlPoints.length; i++) {
-                        ctx.lineTo(ent.controlPoints[i].x, ent.controlPoints[i].y);
+                if (ent.type === 'LINE') {
+                    if(ent.vertices && ent.vertices.length >= 2) {
+                        ctx.moveTo(ent.vertices[0].x, ent.vertices[0].y);
+                        ctx.lineTo(ent.vertices[1].x, ent.vertices[1].y);
+                        ctx.stroke();
                     }
-                    ctx.stroke();
+                } else if (ent.type === 'LWPOLYLINE' || ent.type === 'POLYLINE') {
+                    if(ent.vertices && ent.vertices.length > 0) {
+                        for (let i = 0; i < ent.vertices.length; i++) {
+                            if (i === 0) ctx.moveTo(ent.vertices[i].x, ent.vertices[i].y);
+                            else ctx.lineTo(ent.vertices[i].x, ent.vertices[i].y);
+                        }
+                        if (ent.shape || ent.closed) ctx.closePath();
+                        ctx.stroke();
+                    }
+                } else if (ent.type === 'CIRCLE') {
+                    if(ent.center && ent.radius !== undefined) {
+                        ctx.arc(ent.center.x, ent.center.y, ent.radius, 0, Math.PI*2);
+                        ctx.stroke();
+                    }
+                } else if (ent.type === 'ARC') {
+                    if(ent.center && ent.radius !== undefined) {
+                        const startA = (ent.startAngle || 0) * Math.PI/180;
+                        const endA = (ent.endAngle || 0) * Math.PI/180;
+                        ctx.arc(ent.center.x, ent.center.y, ent.radius, startA, endA, false);
+                        ctx.stroke();
+                    }
+                } else if (ent.type === 'ELLIPSE') {
+                    if(ctx.ellipse && ent.center && ent.majorAxisEndPoint) {
+                        const rx = Math.sqrt(ent.majorAxisEndPoint.x**2 + ent.majorAxisEndPoint.y**2);
+                        const ry = rx * (ent.axisRatio || 1);
+                        let rot = Math.atan2(ent.majorAxisEndPoint.y, ent.majorAxisEndPoint.x);
+                        const startA = ent.startAngle !== undefined ? ent.startAngle : 0;
+                        const endA = ent.endAngle !== undefined ? ent.endAngle : (Math.PI * 2);
+                        ctx.ellipse(ent.center.x, ent.center.y, rx, ry, rot, startA, endA, false);
+                        ctx.stroke();
+                    }
+                } else if (ent.type === 'SPLINE') {
+                    if(ent.controlPoints && ent.controlPoints.length > 0) {
+                        ctx.moveTo(ent.controlPoints[0].x, ent.controlPoints[0].y);
+                        for (let i = 1; i < ent.controlPoints.length; i++) {
+                            ctx.lineTo(ent.controlPoints[i].x, ent.controlPoints[i].y);
+                        }
+                        ctx.stroke();
+                    }
+                } else if (ent.type === 'INSERT') {
+                    const block = dxfData.blocks && dxfData.blocks[ent.name];
+                    if (block && block.entities) {
+                        ctx.save();
+                        if(ent.position) ctx.translate(ent.position.x || 0, ent.position.y || 0);
+                        ctx.scale(ent.scaleX !== undefined ? ent.scaleX : 1, ent.scaleY !== undefined ? ent.scaleY : 1);
+                        ctx.rotate((ent.rotation || 0) * Math.PI/180);
+                        block.entities.forEach(blockEnt => drawEntity(blockEnt));
+                        ctx.restore();
+                    }
                 }
-            } else if (ent.type === 'INSERT') {
-                const block = dxfData.blocks && dxfData.blocks[ent.name];
-                if (block && block.entities) {
-                    ctx.save();
-                    ctx.translate(ent.position.x, ent.position.y);
-                    ctx.scale(ent.scaleX || 1, ent.scaleY || 1);
-                    ctx.rotate((ent.rotation || 0) * Math.PI/180);
-                    block.entities.forEach(blockEnt => drawEntity(blockEnt));
-                    ctx.restore();
-                }
+            } catch(e) {
+                // Prevención de cuelgues - si la entidad corrupta falla, ignoramos y seguimos pintando el 99% restante del plano
+                console.warn("Fallo visualizando entidad DXF:", ent, e);
             }
         }
         entities.forEach(ent => drawEntity(ent));
