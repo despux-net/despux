@@ -67,6 +67,82 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btn-optimize').addEventListener('click', optimizar);
     document.getElementById('btn-pdf').addEventListener('click', descargarPDF);
+
+    // Importación de Excel usando SheetJS
+    document.getElementById('excel-file').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+
+            if (rows.length === 0) return;
+
+            // Saltar cabecera si es un texto
+            let startIndex = 0;
+            if (rows[0].length > 0 && typeof rows[0][0] === 'string' && isNaN(parseFloat(rows[0][0]))) {
+                startIndex = 1;
+            }
+
+            const mode = document.querySelector('input[name="cut-mode"]:checked').value;
+            const is1D = (mode === '1D');
+            
+            // Limpiar si solo hay una fila base vacía
+            if (partsContainer.children.length === 1) {
+                const first = partsContainer.children[0];
+                if (!first.querySelector('.part-L').value) {
+                    partsContainer.innerHTML = '';
+                }
+            }
+
+            let numRows = partsContainer.children.length;
+            let added = 0;
+
+            for (let i = startIndex; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+
+                let pL = 0, pW = 0, pQty = 1, pLbl = '';
+
+                if (is1D) {
+                    pL = parseFloat(row[0]);
+                    pQty = parseInt(row[1]) || 1;
+                    pLbl = row[2] ? String(row[2]) : `P${numRows + 1}`;
+                } else {
+                    pL = parseFloat(row[0]);
+                    pW = parseFloat(row[1]) || 0;
+                    pQty = parseInt(row[2]) || 1;
+                    pLbl = row[3] ? String(row[3]) : `P${numRows + 1}`;
+                }
+
+                if (isNaN(pL) || pL <= 0) continue; 
+
+                numRows++;
+                added++;
+                
+                const newRow = document.createElement('div');
+                newRow.className = 'flex gap-2 items-center part-row';
+                newRow.innerHTML = `
+                    <input type="number" min="1" class="flex-1 min-w-0 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-L" required value="${pL}">
+                    <input type="number" min="1" value="${pW}" class="flex-1 min-w-0 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-W col-width ${is1D ? 'hidden-transition' : ''}" required>
+                    <input type="number" min="1" value="${pQty}" class="w-16 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-Qty text-center" required>
+                    <input type="text" placeholder="P${numRows}" value="${pLbl}" class="flex-1 min-w-0 p-2 text-sm bg-gray-50 dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded part-Lbl" required>
+                    <button type="button" class="w-6 text-red-500 hover:text-red-700 text-xl font-bold btn-remove text-center" tabindex="-1">×</button>
+                `;
+                attachRemoveEvent(newRow.querySelector('.btn-remove'));
+                partsContainer.appendChild(newRow);
+            }
+            
+            e.target.value = '';
+            if (added > 0) alert('Excel importado: Se han añadido ' + added + ' piezas. La columna del ancho ha sido omitida en 1D si procedía.');
+            else alert('No se encontraron filas con datos válidos en el documento Excel.');
+        };
+        reader.readAsArrayBuffer(file);
+    });
 });
 
 let calculoActual = null; // Guardará estado de cálculo para re-renderizado
