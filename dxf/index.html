@@ -105,8 +105,11 @@
                 <span>Y: <span id="coord-y">0.00</span></span>
             </div>
             
-            <!-- El tool de acotado ahora es libre sin overlay estorboso, info se plama directo al lienzo -->
-            <canvas id="cad-canvas" class="w-full h-full block"></canvas>
+            <!-- Contenedor SVG: el SVG DXF se inserta aquí, se mueve con CSS transform -->
+            <div id="svg-container" class="absolute inset-0 overflow-visible" style="transform-origin: 0 0;"></div>
+
+            <!-- Canvas transparente encima de todo para capturar mouse y dibujar medidas -->
+            <canvas id="cad-canvas" class="absolute inset-0 w-full h-full block z-10" style="background:transparent;"></canvas>
             
             <div id="loading-overlay" class="absolute inset-0 bg-white/90 dark:bg-slate-900/90 hidden items-center justify-center z-50 flex-col gap-4">
                 <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -117,6 +120,6 @@
 
     <!-- html2pdf global import -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="/dxf/app.js?v=2026-03-21T19:50"></script>
+    <script src="/dxf/app.js?v=2026-03-21T20:00"></script>
 </body>
 </html>
