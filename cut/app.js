@@ -463,7 +463,7 @@ function renderPlanos(isBwMode = false) {
                 ctx.textAlign = 'center';
                 // Bajar 25px simulados para despegar el texto del flujo principal de fichas
                 let pushDown = is1D ? Math.max(15, 25*scaleBy) : 0;
-                ctx.fillText(`Restante: ${(stockL - ultimoBordeX).toFixed(1)}mm`, sx + sw/2, canvas.height/2 + pushDown);
+                ctx.fillText(`REST`, sx + sw/2, canvas.height/2 + pushDown);
             }
         }
     });
