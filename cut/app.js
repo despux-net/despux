@@ -416,13 +416,16 @@ function renderPlanos(isBwMode = false) {
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             
+            let txt = `${part.lbl}`;
+            let dimTxt = is1D ? `${part.realW}mm` : (part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}x${part.realH}`);
+
             if (is1D) {
-                let combinedTxt = `${part.lbl} (${part.realW}mm)`;
-                ctx.fillText(combinedTxt, cx + cw/2, cy + ch/2);
+                // Etiqueta P encima de la longitud (Doble linea en tubo grueso)
+                ctx.fillText(txt, cx + cw/2, cy + ch/2 - 12);
+                ctx.font = `bold ${Math.max(14, 20*scaleBy)}px sans-serif`;
+                ctx.fillStyle = isBwMode ? '#000000' : 'rgba(0,0,0,0.8)';
+                ctx.fillText(dimTxt, cx + cw/2, cy + ch/2 + 14);
             } else {
-                let txt = `${part.lbl}`;
-                let dimTxt = part.rotated ? `${part.realH}x${part.realW}` : `${part.realW}x${part.realH}`;
-                
                 ctx.fillText(txt, cx + cw/2, cy + ch/2 - 8);
                 if(ch > (25*scaleBy)) {
                     ctx.font = `bold ${Math.max(10, 12*scaleBy)}px sans-serif`;
@@ -456,9 +459,11 @@ function renderPlanos(isBwMode = false) {
                     ctx.fillStyle = '#064e3b';
                 }
 
-                ctx.font = `bold ${Math.max(12, 16*scaleBy)}px sans-serif`;
+                ctx.font = `bold ${Math.max(15, 22*scaleBy)}px sans-serif`;
                 ctx.textAlign = 'center';
-                ctx.fillText(`Restante: ${(stockL - ultimoBordeX).toFixed(1)}mm`, sx + sw/2, canvas.height/2);
+                // Bajar 25px simulados para despegar el texto del flujo principal de fichas
+                let pushDown = is1D ? Math.max(15, 25*scaleBy) : 0;
+                ctx.fillText(`Restante: ${(stockL - ultimoBordeX).toFixed(1)}mm`, sx + sw/2, canvas.height/2 + pushDown);
             }
         }
     });
