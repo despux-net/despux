@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let userMeasurements = []; // [{x1,y1,x2,y2, dist}]
     let measuringState = 0;    // 0: inactivo, 1: esperando click A, 2: esperando click B
     let tempMeasurePt = null;  // {x,y}
+    let renderRequested = false; // flag de animacion requestAnimationFrame
 
     // --- CONFIGURACIÓN DE VISTA CANVAS (PAN/ZOOM) ---
     const canvas = document.getElementById('cad-canvas');
@@ -364,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- RENDER ENGINE (HTML5 CANVAS) ---
-    let renderRequested = false;
     function requestRender() {
         if(!renderRequested) {
             renderRequested = true;
