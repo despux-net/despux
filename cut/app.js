@@ -385,16 +385,22 @@ function renderPlanos(isBwMode = false) {
         header.innerText = `[${is1D ? 'Tubo' : 'Lámina'} Comercial #${stock.index}] (L: ${stockL} ${is1D ? '' : 'x W: ' + originalStockW})`;
         
         const canvas = document.createElement('canvas');
-        canvas.className = 'w-full shadow-sm rounded overflow-hidden border ' + (isBwMode ? 'border-gray-800 bg-white' : 'border-gray-300 dark:border-slate-600 bg-gray-200 dark:bg-slate-700'); 
+        canvas.className = 'shadow-sm rounded overflow-hidden border ' + (isBwMode ? 'border-gray-800 bg-white mx-auto block max-w-full' : 'w-full border-gray-300 dark:border-slate-600 bg-gray-200 dark:bg-slate-700'); 
         
         panelDiv.appendChild(header);
         panelDiv.appendChild(canvas);
         renderContainer.appendChild(panelDiv);
 
         const ctx = canvas.getContext('2d');
-        const scaleBy = 1000 / stockL; 
+        
+        // Capping resolution logically to NEVER exceed page aspect ratios in PDF.
+        let maxW = 1000;
+        let maxH = (isBwMode && !is1D) ? 620 : (is1D ? 300 : 1500); 
+        let tH = is1D ? 250 : effStockW;
+        let scaleBy = Math.min(maxW / stockL, maxH / tH);
+        
         canvas.width = stockL * scaleBy;
-        canvas.height = is1D ? (250 * scaleBy) : (effStockW * scaleBy);
+        canvas.height = tH * scaleBy;
         
         // Pintar fondo del tubo o lámina
         ctx.fillStyle = isBwMode ? '#ffffff' : (is1D ? '#d1d5db' : '#e5e7eb'); 
