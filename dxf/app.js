@@ -52,35 +52,65 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // --- EVENTO: SUBIDA DE ARCHIVO ---
+    // --- EVENTO: SUBIDA DE ARCHIVO Y DRAG&DROP ---
     const fileInput = document.getElementById('dxf-file');
     const loader = document.getElementById('loading-overlay');
 
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
+    function procesarArchivo(file) {
         if (!file) return;
 
+        // Mostrar loader visualmente obligando al navegador a repintar antes de bloquear el hilo
         loader.style.display = 'flex';
-        const reader = new FileReader();
         
-        reader.onload = (evt) => {
-            const fileContent = evt.target.result;
-            try {
-                // El wrapper de DXFParser está atachado a windows en web
-                const parser = new window.DxfParser();
-                dxfData = parser.parseSync(fileContent);
-                console.log("DXF Data Result:", dxfData);
-                procesarDXF(dxfData);
-            } catch(err) {
-                console.error(err);
-                alert("Hubo un error interpretando el archivo DXF. Es posible que esté corrupto o no soporte algunas entidades complejas. Guárdalo como DXF ASCII (versión 2013 o anterior) e intenta de nuevo.");
-            } finally {
-                loader.style.display = 'none';
-                e.target.value = ''; // limpiar input
-            }
-        };
-        // FileReader leerá como String ASCII
-        reader.readAsText(file);
+        setTimeout(() => {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const fileContent = evt.target.result;
+                try {
+                    const Parser = window.DxfParser;
+                    if (!Parser) throw new Error("La librería DXF no cargó correctamente del CDN.");
+                    
+                    const parser = new Parser();
+                    dxfData = parser.parseSync(fileContent);
+                    console.log("DXF Parsed:", dxfData);
+                    procesarDXF(dxfData);
+                } catch(err) {
+                    console.error("Error del Parser DXF:", err);
+                    alert("Aviso: Fallo al leer el archivo. Es probable que sea una versión muy nueva o contenga entidades complejas.\nPor favor ábralo en AutoCAD u otro CAD y guárdelo explícitamente como 'DXF AutoCAD 2013' (formato ASCII).");
+                } finally {
+                    loader.style.display = 'none';
+                    if(fileInput) fileInput.value = ''; 
+                }
+            };
+            reader.readAsText(file);
+        }, 300); // Dar 300ms a la UI para que renderice el loader
+    }
+
+    fileInput.addEventListener('change', (e) => procesarArchivo(e.target.files[0]));
+
+    // --- MANEJO DRAG AND DROP ---
+    wrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        wrapper.style.opacity = '0.7';
+        wrapper.style.border = '4px dashed #3b82f6';
+    });
+    
+    wrapper.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        wrapper.style.opacity = '1';
+        wrapper.style.border = 'none';
+    });
+    
+    wrapper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wrapper.style.opacity = '1';
+        wrapper.style.border = 'none';
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.toLowerCase().endsWith('.dxf')) {
+            procesarArchivo(file);
+        } else {
+            alert("Formato no válido. Por favor arrastre únicamente un archivo con extensión .dxf");
+        }
     });
 
     // --- PROCESADO LOGICO ---
