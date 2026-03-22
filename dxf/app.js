@@ -319,26 +319,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ====================================================
-    //  ARC MATH - VERIFIED CORRECT
-    //  DXF: startAngle -> endAngle in degrees, CCW in Y-up space
-    //  Canvas: Y-down. Conversion:
-    //    screen_angle = atan2(-sin(dxf_deg), cos(dxf_deg)) = -dxf_deg_in_radians
-    //  After negating angles:
-    //    DXF CCW arc (increasing angle) -> screen DECREASING angle
-    //    Decreasing angle in canvas (Y-down) = counterclockwise=true
-    //  VERIFIED with DXF ARC sa=180 ea=270 (lower-left quadrant):
-    //    sa_s=-pi=-180deg, ea_s=-3pi/2 equiv 90deg
-    //    going CCW (decreasing) from -180 -> -270: visits -210,-240,-270
-    //    cos(-210)=-0.87 sin(-210)=+0.5 => lower-left area ✓
-    //    cos(-270)=0 sin(-270)=+1 => directly below center ✓
+    //  ARC MATH
+    //  dxf-parser returns startAngle/endAngle in RADIANS (not degrees).
+    //  DXF: CCW in Y-up space (angles increase CCW).
+    //  Canvas: Y-down. We negate angles to flip Y-axis.
+    //
+    //  After negating: both angles become MORE NEGATIVE (decrease).
+    //  "Decreasing angles" in canvas = anticlockwise direction.
+    //  Therefore: counterclockwise=true.
+    //
+    //  Example: DXF ARC sa=π (180°), ea=3π/2 (270°)  [upper-left corner]
+    //    sa_s = -π, ea_s = -3π/2
+    //    CCW (anticlockwise=true): decreasing from -π → -3π/2 = ¼ arc ✓
+    //    CW  (anticlockwise=false): would go +270° the long way ✗
     // ====================================================
-    function drawArc(cx, cy, r, sa_deg, ea_deg) {
+    function drawArc(cx, cy, r, sa_rad, ea_rad) {
         const c = w2s(cx, cy);
         const rs = r * view.zoom;
-        // Negate angles for Y-flip
-        const sa = -sa_deg * Math.PI / 180;
-        const ea = -ea_deg * Math.PI / 180;
-        // counterclockwise=true: draws 90 deg arc correctly (not 270 deg)
+        // Negate angles for Y-flip (DXF Y-up → canvas Y-down)
+        const sa = -sa_rad;
+        const ea = -ea_rad;
+        // counterclockwise=true: after negation, angles decrease = CCW in canvas
         ctx.arc(c.x, c.y, rs, sa, ea, true);
         ctx.stroke();
     }
@@ -411,8 +412,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const rs=r*view.zoom;
         const sc=w2s(arcCx,arcCy);
 
-        // DXF +bulge = CCW = screen DECREASING angle = counterclockwise=true
-        // DXF -bulge = CW = screen INCREASING angle = counterclockwise=false
+        // DXF +bulge = CCW in Y-up → negated angles decrease in canvas = anticlockwise=true
+        // DXF -bulge = CW in Y-up → negated angles increase in canvas = anticlockwise=false
         ctx.arc(sc.x,sc.y,rs,aScStart,aScEnd,bulge>0);
     }
 
