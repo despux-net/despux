@@ -254,10 +254,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (Math.abs(dc-ent.r)<tol) hit={type:'diameter',cx:ent.cx,cy:ent.cy,r:ent.r};
             }
         });
-        if (hit && measState===0) { userMeas.push(hit); requestRender(); return; }
 
-        if (measState===0||measState===2) { measState=1; mPt1={wx:w.x,wy:w.y}; }
-        else { userMeas.push({type:'line',x1:mPt1.wx,y1:mPt1.wy,x2:w.x,y2:w.y,dist:Math.hypot(w.x-mPt1.wx,w.y-mPt1.wy)}); measState=2; mPt1=null; }
+        if (hit) {
+            // Avoid duplicate diameter tags if clicking the same circle again
+            const isDup = userMeas.find(m => m.type === 'diameter' && Math.abs(m.cx - hit.cx) < 1e-4 && Math.abs(m.cy - hit.cy) < 1e-4);
+            if (!isDup) userMeas.push(hit);
+
+            if (measState === 1 && mPt1) {
+                // Complete a line to this circle's center
+                const dist = Math.hypot(hit.cx - mPt1.wx, hit.cy - mPt1.wy);
+                if (dist > 1e-6) {
+                    userMeas.push({
+                        type: 'line', x1: mPt1.wx, y1: mPt1.wy,
+                        x2: hit.cx, y2: hit.cy, dist: dist
+                    });
+                }
+                measState = 2;
+                mPt1 = null;
+            } else {
+                // Start a line from this circle's center
+                measState = 1;
+                mPt1 = { wx: hit.cx, wy: hit.cy };
+            }
+            requestRender();
+            return;
+        }
+
+        // If not hitting a circle, do normal line measure
+        if (measState === 0 || measState === 2) { 
+            measState = 1; 
+            mPt1 = { wx: w.x, wy: w.y }; 
+        } else { 
+            userMeas.push({
+                type: 'line', x1: mPt1.wx, y1: mPt1.wy,
+                x2: w.x, y2: w.y, dist: Math.hypot(w.x - mPt1.wx, w.y - mPt1.wy)
+            }); 
+            measState = 2; 
+            mPt1 = null; 
+        }
         requestRender();
     }
 
