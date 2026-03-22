@@ -1,0 +1,214 @@
+/* Variables y reseteo base ya viene de main.css */
+
+body {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    font-family: var(--font-body, system-ui, -apple-system, sans-serif);
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-container {
+    padding: 2rem 5%;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 1.5rem;
+    flex: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.panel {
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.panel h2 {
+    font-size: 1.1rem;
+    color: #a3a3a3;
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Panel 1: Inputs */
+.input-group {
+    margin-bottom: 1.25rem;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+    color: #d1d5db;
+}
+
+.input-group input[type="number"],
+.input-group input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    background: #1e1e1e;
+    border: 1px solid #444;
+    color: white;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: #3b82f6;
+}
+
+.input-group small {
+    display: block;
+    margin-top: 0.4rem;
+    color: #6b7280;
+    font-size: 0.8rem;
+}
+
+.radio-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.radio-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #d1d5db;
+    cursor: pointer;
+}
+
+.radio-group input[type="radio"] {
+    accent-color: #3b82f6;
+}
+
+.btn-primary {
+    width: 100%;
+    padding: 0.8rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 1rem;
+}
+
+.btn-primary:hover {
+    background: #1d4ed8;
+}
+
+/* Panel 2: Results */
+.result-box {
+    background: #1e1e1e;
+    border-left: 4px solid #4b5563;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 4px;
+}
+
+.result-box h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #f3f4f6;
+}
+
+.result-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.4rem;
+    font-size: 0.95rem;
+    color: #9ca3af;
+}
+
+.result-row strong {
+    color: #ffffff;
+    font-family: monospace;
+    font-size: 1.05rem;
+}
+
+.highlighted {
+    border-left-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.fit-badge {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    margin-top: 0.5rem;
+    text-transform: uppercase;
+    background: #4b5563;
+}
+.fit-badge.clearance { background: #059669; color: white; }
+.fit-badge.interference { background: #dc2626; color: white; }
+.fit-badge.transition { background: #d97706; color: white; }
+
+/* Panel 3: Comments */
+.comment-block {
+    margin-bottom: 1.5rem;
+}
+
+.comment-block h4 {
+    margin: 0 0 0.5rem 0;
+    color: #93c5fd;
+    font-size: 0.95rem;
+}
+
+.comment-block p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #d1d5db;
+}
+
+/* Panel 4: Drawing */
+.panel-drawing {
+    grid-column: 1 / -1;
+    min-height: 350px;
+    display: flex;
+    flex-direction: column;
+}
+
+.svg-container {
+    flex: 1;
+    background: #171717;
+    border: 1px solid #333;
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Responsive Grid */
+@media (max-width: 1024px) {
+    .app-container {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-container {
+        grid-template-columns: 1fr;
+    }
+}
