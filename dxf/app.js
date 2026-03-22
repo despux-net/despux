@@ -417,6 +417,188 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.arc(sc.x,sc.y,rs,aScStart,aScEnd,bulge>0);
     }
 
+    // ====================================================
+    //  LIVE PROJECTION MEASUREMENT — RAY CASTING HELPERS
+    // ====================================================
+
+    // Discretize an arc (DXF radians, CCW) into line segments for ray testing
+    function discretizeArcSegs(cx, cy, r, sa, ea, steps) {
+        if (ea < sa) ea += Math.PI * 2;
+        const segs = [];
+        for (let i = 0; i < steps; i++) {
+            const a1 = sa + (i / steps) * (ea - sa);
+            const a2 = sa + ((i + 1) / steps) * (ea - sa);
+            segs.push({
+                x1: cx + r * Math.cos(a1), y1: cy + r * Math.sin(a1),
+                x2: cx + r * Math.cos(a2), y2: cy + r * Math.sin(a2)
+            });
+        }
+        return segs;
+    }
+
+    // Convert any entity into a flat array of {x1,y1,x2,y2} segments
+    function getEntitySegments(ent) {
+        const segs = [];
+        if (ent.type === 'LINE') {
+            segs.push({ x1: ent.x1, y1: ent.y1, x2: ent.x2, y2: ent.y2 });
+
+        } else if (ent.type === 'PLINE') {
+            const vs = ent.vertices;
+            for (let i = 0; i < vs.length; i++) {
+                const ni = (i + 1 < vs.length) ? i + 1 : (ent.closed ? 0 : -1);
+                if (ni === -1) break;
+                const v1 = vs[i], v2 = vs[ni];
+                if (!v1.bulge || Math.abs(v1.bulge) < 1e-6) {
+                    segs.push({ x1: v1.x, y1: v1.y, x2: v2.x, y2: v2.y });
+                } else {
+                    const dx = v2.x - v1.x, dy = v2.y - v1.y, dist2 = Math.hypot(dx, dy);
+                    if (dist2 < 1e-10) continue;
+                    const ab = Math.abs(v1.bulge);
+                    const rb = dist2 * (ab * ab + 1) / (4 * ab);
+                    const h2 = rb * rb - (dist2 / 2) * (dist2 / 2);
+                    const hh = h2 > 0 ? Math.sqrt(h2) : 0;
+                    const ca = Math.atan2(dy, dx);
+                    const sgn = Math.sign(v1.bulge);
+                    const mx = (v1.x + v2.x) / 2, my = (v1.y + v2.y) / 2;
+                    const acx = mx + sgn * hh * Math.cos(ca + Math.PI / 2);
+                    const acy = my + sgn * hh * Math.sin(ca + Math.PI / 2);
+                    let bsa = Math.atan2(v1.y - acy, v1.x - acx);
+                    let bea = Math.atan2(v2.y - acy, v2.x - acx);
+                    if (v1.bulge > 0) { if (bea < bsa) bea += Math.PI * 2; }
+                    else              { if (bsa < bea) bsa -= Math.PI * 2; }
+                    segs.push(...discretizeArcSegs(acx, acy, rb, Math.min(bsa,bea), Math.max(bsa,bea), 14));
+                }
+            }
+
+        } else if (ent.type === 'CIRCLE') {
+            segs.push(...discretizeArcSegs(ent.cx, ent.cy, ent.r, 0, Math.PI * 2, 32));
+
+        } else if (ent.type === 'ARC') {
+            segs.push(...discretizeArcSegs(ent.cx, ent.cy, ent.r, ent.sa, ent.ea, 20));
+        }
+        return segs;
+    }
+
+    // Horizontal ray at y=wy → returns x of intersection, or null
+    function hRayIntersect(wy, seg) {
+        const dy = seg.y2 - seg.y1;
+        if (Math.abs(dy) < 1e-10) return null;
+        const t = (wy - seg.y1) / dy;
+        if (t < -1e-9 || t > 1 + 1e-9) return null;
+        return seg.x1 + t * (seg.x2 - seg.x1);
+    }
+
+    // Vertical ray at x=wx → returns y of intersection, or null
+    function vRayIntersect(wx, seg) {
+        const dx = seg.x2 - seg.x1;
+        if (Math.abs(dx) < 1e-10) return null;
+        const t = (wx - seg.x1) / dx;
+        if (t < -1e-9 || t > 1 + 1e-9) return null;
+        return seg.y1 + t * (seg.y2 - seg.y1);
+    }
+
+    // Filled arrowhead: tip at (x,y), body pointing in direction (dx,dy)
+    function drawDimArrow(x, y, dx, dy) {
+        const sz = 7, w = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + dx * sz + dy * w, y + dy * sz - dx * w);
+        ctx.lineTo(x + dx * sz - dy * w, y + dy * sz + dx * w);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // Main projection overlay — drawn every frame in measure mode
+    function drawProjectionMeasure(wx, wy, dark) {
+        if (!allEntities.length) return;
+
+        let left = null, right = null, topY = null, botY = null;
+
+        allEntities.forEach(ent => {
+            if (!layers[ent.layer] || !layers[ent.layer].visible) return;
+            getEntitySegments(ent).forEach(seg => {
+                const hx = hRayIntersect(wy, seg);
+                if (hx !== null) {
+                    if (hx < wx - 1e-6) { if (left  === null || hx > left)  left  = hx; }
+                    if (hx > wx + 1e-6) { if (right === null || hx < right)  right = hx; }
+                }
+                const vy = vRayIntersect(wx, seg);
+                if (vy !== null) {
+                    if (vy < wy - 1e-6) { if (botY === null || vy > botY) botY = vy; }
+                    if (vy > wy + 1e-6) { if (topY === null || vy < topY) topY = vy; }
+                }
+            });
+        });
+
+        const COL = '#f59e0b';
+        ctx.save();
+        ctx.strokeStyle = COL;
+        ctx.fillStyle   = COL;
+        ctx.font = 'bold 11px monospace';
+        const scrCur = w2s(wx, wy);
+
+        // ---- HORIZONTAL COTA ----
+        if (left !== null && right !== null) {
+            const dist = right - left;
+            const scXL = w2s(left,  wy).x;
+            const scXR = w2s(right, wy).x;
+            const scY  = scrCur.y;
+
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 4]);
+            ctx.beginPath(); ctx.moveTo(scXL, scY); ctx.lineTo(scXR, scY); ctx.stroke();
+            ctx.setLineDash([]);
+            // Tick marks at endpoints
+            [scXL, scXR].forEach(sx => {
+                ctx.beginPath(); ctx.moveTo(sx, scY - 7); ctx.lineTo(sx, scY + 7); ctx.stroke();
+            });
+            // Arrowheads pointing inward
+            drawDimArrow(scXL, scY,  1, 0);
+            drawDimArrow(scXR, scY, -1, 0);
+            // Label
+            const lbl = dist.toFixed(2);
+            const mx  = (scXL + scXR) / 2;
+            const tw  = ctx.measureText(lbl).width;
+            ctx.fillStyle = dark ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.92)';
+            ctx.fillRect(mx - tw / 2 - 4, scY - 20, tw + 8, 14);
+            ctx.fillStyle = COL;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(lbl, mx, scY - 13);
+        }
+
+        // ---- VERTICAL COTA ----
+        if (topY !== null && botY !== null) {
+            const dist = topY - botY;           // DXF Y-up: topY > botY
+            const scYT = w2s(wx, topY).y;       // screen: smaller = higher
+            const scYB = w2s(wx, botY).y;       // screen: larger  = lower
+            const scX  = scrCur.x;
+
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = COL; ctx.fillStyle = COL;
+            ctx.setLineDash([5, 4]);
+            ctx.beginPath(); ctx.moveTo(scX, scYT); ctx.lineTo(scX, scYB); ctx.stroke();
+            ctx.setLineDash([]);
+            // Tick marks
+            [scYT, scYB].forEach(sy => {
+                ctx.beginPath(); ctx.moveTo(scX - 7, sy); ctx.lineTo(scX + 7, sy); ctx.stroke();
+            });
+            // Arrowheads pointing inward
+            drawDimArrow(scX, scYT,  0,  1);   // top end → arrow points down
+            drawDimArrow(scX, scYB,  0, -1);   // bottom end → arrow points up
+            // Label
+            const lbl = dist.toFixed(2);
+            const my  = (scYT + scYB) / 2;
+            const tw  = ctx.measureText(lbl).width;
+            ctx.fillStyle = dark ? 'rgba(0,0,0,0.82)' : 'rgba(255,255,255,0.92)';
+            ctx.fillRect(scX + 9, my - 7, tw + 8, 14);
+            ctx.fillStyle = COL;
+            ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText(lbl, scX + 13, my);
+        }
+
+        ctx.restore();
+    }
+
     // --- DRAW MEASURES ---
     function drawMeasures(dark) {
         ctx.lineWidth=2;
@@ -445,6 +627,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.fillText(lbl,mx,my-2);
             }
         });
+
+        // Live projection cotas (always shown in measure mode while hovering)
+        if (view.tool === 'measure' && allEntities.length) {
+            const w = s2w(mouseScr.x, mouseScr.y);
+            drawProjectionMeasure(w.x, w.y, dark);
+        }
+
         // Live preview
         if (view.tool==='measure'&&measState===1&&mPt1) {
             const p1=w2s(mPt1.wx,mPt1.wy);
