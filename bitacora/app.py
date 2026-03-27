@@ -69,66 +69,90 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ==============================================================================
-# ESTILOS CSS PERSONALIZADOS (ESTILO APPLE / V28)
+# ESTILOS CSS PERSONALIZADOS (ESTILO APPLE / V28 REFOZADO)
 # ==============================================================================
 st.markdown("""
 <style>
-    /* Forzar fondo blanco y eliminar padding extra */
-    .stApp { background-color: #F8F9FA; color: #1C1C1E; }
+    /* Forzar fondo blanco y texto oscuro global */
+    .stApp, [data-theme="light"], [data-theme="dark"] { 
+        background-color: #F8F9FA !important; 
+        color: #1C1C1E !important; 
+    }
     
-    /* Sidebar Estilo Original */
-    section[data-testid="stSidebar"] { 
+    /* Sidebar Robusto */
+    div[data-testid="stSidebar"] { 
         background-color: #FFFFFF !important; 
-        border-right: 1px solid #E5E5EA;
+        border-right: 1px solid #E5E5EA !important;
         min-width: 300px !important;
     }
     
+    /* Asegurar visibilidad de textos en sidebar */
+    div[data-testid="stSidebar"] p, div[data-testid="stSidebar"] div, div[data-testid="stSidebar"] span {
+        color: #1C1C1E !important;
+    }
+    
     /* Títulos Sidebar */
-    .sb-heading { font-family: 'Helvetica', sans-serif; font-size: 22px; font-weight: bold; color: #1C1C1E; margin-bottom: 20px; }
+    .sb-heading { 
+        font-family: 'Helvetica', sans-serif; 
+        font-size: 22px; 
+        font-weight: bold; 
+        color: #1C1C1E !important; 
+        margin-bottom: 20px; 
+    }
     
     /* Logo DESPUX */
     .despux-logo { 
         font-family: 'Helvetica', sans-serif; 
         font-size: 32px; 
         font-weight: 900; 
-        color: #002366; 
-        text-decoration: none; 
+        color: #002366 !important; 
+        text-decoration: none !important; 
         display: block; 
         text-align: center; 
         padding: 20px 0; 
     }
 
-    /* Cards (Contenedores Blancos) */
-    .st-emotion-cache-12w0qpk { background-color: white; border-radius: 15px; padding: 20px; border: 1px solid #E5E5EA; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-    
-    /* Botones Personalizados por ID/Orden */
-    /* Azul: Subir Oferta / Procesar / Login */
-    div.stButton > button[kind="primary"], .st-bc { 
-        background-color: #007AFF !important; border: none !important; color: white !important; 
-        font-weight: bold !important; height: 45px !important; border_radius: 10px !important;
+    /* Cards (Contenedores Blancos) - Usando selectores de atributo más estables */
+    div[data-testid="stVerticalBlock"] > div[style*="border: 1px solid"] {
+        background-color: white !important;
+        border-radius: 12px !important;
+        padding: 20px !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
     }
-    /* Verde: Archivos Extras */
-    div.stButton > button:nth-of-type(1) {  } /* Streamlit no permite targeting facil por color, usaremos el style inline donde sea posible */
-
-    /* Terminal de Sistema Estilo Card */
+    
+    /* Botones - Forzar visibilidad del texto */
+    button p { 
+        color: white !important; 
+        font-weight: bold !important; 
+    }
+    
+    /* Botones específicos por color */
+    button[key="btn_procesar"], button[key="btn_login"] { background-color: #007AFF !important; }
+    button[key="btn_detener"], button[key="btn_limpiar"] { background-color: #FF3B30 !important; }
+    button[key="btn_generar"], div[data-testid="stDownloadButton"] > button { background-color: #FF9500 !important; }
+    
+    /* Terminal de Sistema */
     .terminal-card { 
-        background-color: #F2F2F7; 
-        border-radius: 12px; 
-        padding: 15px; 
-        border: 1px solid #E5E5EA;
-        font-family: 'Consolas', monospace;
+        background-color: #F2F2F7 !important; 
+        border-radius: 12px !important; 
+        padding: 15px !important; 
+        border: 1px solid #E5E5EA !important;
+        font-family: 'Consolas', monospace !important;
         height: 250px;
         overflow-y: auto;
+        color: #1C1C1E !important;
     }
 
-    /* Ajuste de inputs */
-    input { background-color: #F2F2F7 !important; color: #1C1C1E !important; border: 1px solid #E5E5EA !important; }
-    textarea { background-color: #F2F2F7 !important; color: #1C1C1E !important; border: 1px solid #E5E5EA !important; }
+    /* Inputs y Textareas */
+    [data-testid="stWidgetLabel"] p { color: #1C1C1E !important; font-weight: 600 !important; }
+    input, textarea { 
+        background-color: #FFFFFF !important; 
+        color: #1C1C1E !important; 
+        border: 1px solid #D1D1D6 !important; 
+    }
     
-    /* Ocultar elementos de Streamlit (opcional para limpieza) */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Ocultar elementos molestos */
+    #MainMenu, footer, header { visibility: hidden !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -434,7 +458,7 @@ def procesar_todo(pdf_bytes, archivos_extras, datos_usuario, progress_bar, lbl_p
                     tabla_placeholder.dataframe(
                         pd.DataFrame(st.session_state.datos_procesados),
                         use_container_width=True,
-                        height=300
+                        height=250
                     )
                 # Actualizar log en vivo
                 render_log(log_placeholder)
@@ -468,7 +492,7 @@ def sidebar_auth():
             st.session_state.processing_done = False
             st.rerun()
     else:
-        if st.sidebar.button("👤 Iniciar Sesión", use_container_width=True, type="primary"):
+        if st.sidebar.button("👤 Iniciar Sesión", use_container_width=True, key="btn_login"):
             st.session_state.show_login_modal = True
             st.rerun()
 
@@ -590,7 +614,7 @@ def modal_credenciales():
 # UI PRINCIPAL
 # ==============================================================================
 def main():
-    # --- SIDEBAR ---
+    # --- SIDEBAR (Siempre renderizada con algo para evitar que desaparezca) ---
     with st.sidebar:
         # Logo DESPUX con clase personalizada
         st.markdown('<a href="https://www.despux.net/" target="_blank" class="despux-logo">DESPUX</a>', unsafe_allow_html=True)
@@ -607,9 +631,10 @@ def main():
         """, unsafe_allow_html=True)
         pdf_file = st.file_uploader("📄 Subir Oferta (PDF)", type=["pdf"], key="pdf_uploader", help="Selecciona el PDF principal del proyecto")
         
-        # Botón Extras (Verde original) - Usamos una capa de CSS para este widget específico
+        # Botón Extras (Verde original)
         st.markdown("""
             <style>
+            /* Hack para colorear el segundo uploader si es posible, o simplemente forzar visibilidad */
             [data-testid="stFormSubmitButton"] > button { background-color: #34C759 !important; }
             </style>
         """, unsafe_allow_html=True)
@@ -668,11 +693,9 @@ def main():
             col_proc, col_stop = st.columns(2)
             with col_proc:
                 # Botón Procesar (Azul)
-                st.markdown("""<style>button[key="btn_procesar"] { background-color: #007AFF !important; color: white !important; }</style>""", unsafe_allow_html=True)
                 procesar = st.button("🚀 Procesar", use_container_width=True, disabled=procesar_disabled, key="btn_procesar")
             with col_stop:
                 # Botón Detener (Rojo)
-                st.markdown("""<style>button[key="btn_detener"] { background-color: #FF3B30 !important; color: white !important; }</style>""", unsafe_allow_html=True)
                 st.button("🛑 Detener", use_container_width=True, disabled=True, key="btn_detener")
 
     with col_resultados:
@@ -699,7 +722,6 @@ def main():
                 col_exp, col_lmp = st.columns(2)
                 with col_exp:
                     # Exportar a Excel (Naranja)
-                    st.markdown("""<style>div[data-testid="stDownloadButton"] > button { background-color: #FF9500 !important; color: white !important; }</style>""", unsafe_allow_html=True)
                     df_exp = pd.DataFrame(st.session_state.datos_procesados)
                     buf = io.BytesIO()
                     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
@@ -713,7 +735,6 @@ def main():
                     )
                 with col_lmp:
                     # Limpiar Datos (Rojo)
-                    st.markdown("""<style>button[key="btn_limpiar"] { background-color: #FF3B30 !important; color: white !important; }</style>""", unsafe_allow_html=True)
                     if st.button("🗑 Limpiar Datos", use_container_width=True, key="btn_limpiar"):
                         st.session_state.datos_procesados = []
                         st.session_state.log_lines = []
@@ -730,7 +751,7 @@ def main():
             else:
                 st.caption("Esperando inicio de proceso...")
 
-    # --- GENERAR BITÁCORA (subir a Excel existente) ---
+    # --- GENERAR BITÁCORA ---
     if generar_clicked and pdf_file:
         st.info("Funcionalidad 'GENERAR BITÁCORA': selecciona un archivo Excel al que deseas agregar una hoja 'despux' con los resultados.")
         excel_upload = st.file_uploader("Sube el archivo Excel destino", type=["xlsx"], key="excel_dest")
@@ -775,7 +796,6 @@ def main():
         st.rerun()
     elif procesar and not pdf_file:
         st.warning("⚠️ Debes subir un PDF antes de procesar.")
-
 
 if __name__ == "__main__":
     main()
