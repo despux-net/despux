@@ -69,25 +69,66 @@ for k, v in defaults.items():
         st.session_state[k] = v
 
 # ==============================================================================
-# ESTILOS CSS PERSONALIZADOS
+# ESTILOS CSS PERSONALIZADOS (ESTILO APPLE / V28)
 # ==============================================================================
 st.markdown("""
 <style>
-    /* Fondo principal */
-    .main { background-color: #F2F2F7; }
-    /* Sidebar */
-    section[data-testid="stSidebar"] { background-color: #FFFFFF; border-right: 1px solid #E5E5EA; }
-    /* Header DESPUX */
-    .despux-logo { font-size: 2.5rem; font-weight: 900; color: #002366; text-decoration: none; display: block; text-align: center; padding: 10px 0; }
-    .despux-logo:hover { opacity: 0.85; }
-    /* Mensajes de log */
-    .log-success { color: #34C759; font-family: monospace; font-size: 0.85rem; }
-    .log-normal  { color: #1C1C1E; font-family: monospace; font-size: 0.85rem; }
-    .log-error   { color: #FF3B30; font-family: monospace; font-size: 0.85rem; }
-    /* Tabla limpia */
-    .stDataFrame { background: white; border-radius: 12px; }
-    /* Botón primario full-width */
-    .stButton > button { width: 100%; border-radius: 10px; font-weight: bold; }
+    /* Forzar fondo blanco y eliminar padding extra */
+    .stApp { background-color: #F8F9FA; color: #1C1C1E; }
+    
+    /* Sidebar Estilo Original */
+    section[data-testid="stSidebar"] { 
+        background-color: #FFFFFF !important; 
+        border-right: 1px solid #E5E5EA;
+        min-width: 300px !important;
+    }
+    
+    /* Títulos Sidebar */
+    .sb-heading { font-family: 'Helvetica', sans-serif; font-size: 22px; font-weight: bold; color: #1C1C1E; margin-bottom: 20px; }
+    
+    /* Logo DESPUX */
+    .despux-logo { 
+        font-family: 'Helvetica', sans-serif; 
+        font-size: 32px; 
+        font-weight: 900; 
+        color: #002366; 
+        text-decoration: none; 
+        display: block; 
+        text-align: center; 
+        padding: 20px 0; 
+    }
+
+    /* Cards (Contenedores Blancos) */
+    .st-emotion-cache-12w0qpk { background-color: white; border-radius: 15px; padding: 20px; border: 1px solid #E5E5EA; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+    
+    /* Botones Personalizados por ID/Orden */
+    /* Azul: Subir Oferta / Procesar / Login */
+    div.stButton > button[kind="primary"], .st-bc { 
+        background-color: #007AFF !important; border: none !important; color: white !important; 
+        font-weight: bold !important; height: 45px !important; border_radius: 10px !important;
+    }
+    /* Verde: Archivos Extras */
+    div.stButton > button:nth-of-type(1) {  } /* Streamlit no permite targeting facil por color, usaremos el style inline donde sea posible */
+
+    /* Terminal de Sistema Estilo Card */
+    .terminal-card { 
+        background-color: #F2F2F7; 
+        border-radius: 12px; 
+        padding: 15px; 
+        border: 1px solid #E5E5EA;
+        font-family: 'Consolas', monospace;
+        height: 250px;
+        overflow-y: auto;
+    }
+
+    /* Ajuste de inputs */
+    input { background-color: #F2F2F7 !important; color: #1C1C1E !important; border: 1px solid #E5E5EA !important; }
+    textarea { background-color: #F2F2F7 !important; color: #1C1C1E !important; border: 1px solid #E5E5EA !important; }
+    
+    /* Ocultar elementos de Streamlit (opcional para limpieza) */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -551,26 +592,44 @@ def modal_credenciales():
 def main():
     # --- SIDEBAR ---
     with st.sidebar:
+        # Logo DESPUX con clase personalizada
         st.markdown('<a href="https://www.despux.net/" target="_blank" class="despux-logo">DESPUX</a>', unsafe_allow_html=True)
         st.markdown("---")
-        st.subheader("📂 Documentos")
+        
+        # Heading con clase para visibilidad
+        st.markdown('<div class="sb-heading">📂 Documentos</div>', unsafe_allow_html=True)
 
-        pdf_file = st.file_uploader("📄 Subir Oferta (PDF)", type=["pdf"], key="pdf_uploader")
+        # Botón PDF (Azul original)
+        st.markdown("""
+            <style>
+            div[data-testid="stFileUploader"] > section > button { background-color: #007AFF !important; color: white !important; }
+            </style>
+        """, unsafe_allow_html=True)
+        pdf_file = st.file_uploader("📄 Subir Oferta (PDF)", type=["pdf"], key="pdf_uploader", help="Selecciona el PDF principal del proyecto")
+        
+        # Botón Extras (Verde original) - Usamos una capa de CSS para este widget específico
+        st.markdown("""
+            <style>
+            [data-testid="stFormSubmitButton"] > button { background-color: #34C759 !important; }
+            </style>
+        """, unsafe_allow_html=True)
         extra_files = st.file_uploader("📝 Archivos Extras (.txt, .docx)", type=["txt", "docx"], accept_multiple_files=True, key="extra_uploader")
 
-        # Botón GENERAR BITÁCORA — solo activo cuando procesamiento terminó
+        # Botón GENERAR BITÁCORA (Naranja original)
         generar_disabled = not st.session_state.processing_done
-        generar_clicked = st.button(
-            "📋 GENERAR BITÁCORA",
-            use_container_width=True,
-            disabled=generar_disabled,
-            type="secondary"
-        )
+        st.markdown(f"""
+            <style>
+            button[key="btn_generar"] {{ background-color: #FF9500 !important; color: white !important; height: 50px !important; font-size: 16px !important; }}
+            </style>
+        """, unsafe_allow_html=True)
+        generar_clicked = st.button("📋 GENERAR BITÁCORA", use_container_width=True, disabled=generar_disabled, key="btn_generar")
 
         st.markdown("---")
         sidebar_auth()
         st.markdown("---")
-        if st.button("⚙️ Configuración Segura", use_container_width=True):
+        
+        # Botón Configuración (Gris suave original)
+        if st.button("⚙️ Configuración Segura", use_container_width=True, key="btn_config"):
             st.session_state.show_cred_modal = True
             st.rerun()
 
@@ -588,75 +647,88 @@ def main():
     st.caption("Procesamiento inteligente de Google Sheets con IA · DESPUX")
     st.divider()
 
-    col_inputs, col_resultados = st.columns([1, 2], gap="large")
+    col_inputs, col_resultados = st.columns([1, 1.8], gap="medium")
 
     with col_inputs:
-        st.subheader("📝 Datos Manuales")
-        factura = st.text_input("Número de Factura", placeholder="Ej: FAC-2026-0012")
-        orden = st.text_input("Número de Orden de Compra", placeholder="Ej: OC-459821")
-        fecha_ini = st.text_input("Fecha de Inicio del Proyecto", placeholder="Ej: 22 de Marzo de 2026")
-        fecha_fin = st.text_input("Fecha de Finalización", placeholder="Ej: 30 de Noviembre de 2026")
-        herramientas = st.text_input("Herramientas de Medición", placeholder="Ej: Multímetro, Vernier")
-        descripcion = st.text_area("Descripción Detallada", height=100)
-        hitos = st.text_area("Hitos Principales", height=100)
+        with st.container(border=True):
+            st.markdown("### 📝 Datos Manuales")
+            factura = st.text_input("Número de Factura", placeholder="Ej: FAC-2026-0012")
+            orden = st.text_input("Número de Orden de Compra", placeholder="Ej: OC-459821")
+            fecha_ini = st.text_input("Fecha de Inicio del Proyecto", placeholder="Ej: 22 de Marzo de 2026")
+            fecha_fin = st.text_input("Fecha de Finalización", placeholder="Ej: 30 de Noviembre de 2026")
+            herramientas = st.text_input("Herramientas de Medición", placeholder="Ej: Multímetro, Vernier")
+            descripcion = st.text_area("Descripción Detallada", height=80)
+            hitos = st.text_area("Hitos Principales", height=80)
 
-        st.divider()
-        procesar_disabled = st.session_state.logged_in_user is None
-        if procesar_disabled:
-            st.info("🔒 Inicia sesión para habilitar el procesamiento.")
+            st.markdown("---")
+            procesar_disabled = st.session_state.logged_in_user is None
+            if procesar_disabled:
+                st.info("🔒 Inicia sesión para procesar.")
 
-        col_proc, col_stop = st.columns(2)
-        with col_proc:
-            procesar = st.button("🚀 Procesar", type="primary", use_container_width=True, disabled=procesar_disabled)
-        with col_stop:
-            st.button("🛑 Detener", type="secondary", use_container_width=True, disabled=True)
+            col_proc, col_stop = st.columns(2)
+            with col_proc:
+                # Botón Procesar (Azul)
+                st.markdown("""<style>button[key="btn_procesar"] { background-color: #007AFF !important; color: white !important; }</style>""", unsafe_allow_html=True)
+                procesar = st.button("🚀 Procesar", use_container_width=True, disabled=procesar_disabled, key="btn_procesar")
+            with col_stop:
+                # Botón Detener (Rojo)
+                st.markdown("""<style>button[key="btn_detener"] { background-color: #FF3B30 !important; color: white !important; }</style>""", unsafe_allow_html=True)
+                st.button("🛑 Detener", use_container_width=True, disabled=True, key="btn_detener")
 
     with col_resultados:
-        st.subheader("📊 Resultados")
+        with st.container(border=True):
+            st.markdown("### 📊 Resultados Generados")
 
-        # Barra de progreso
-        lbl_progreso = st.empty()
-        progress_bar = st.progress(0)
+            # Barra de progreso
+            progress_bar = st.progress(0)
+            lbl_progreso = st.empty()
 
-        # Tabla de resultados en vivo
-        tabla_placeholder = st.empty()
-        if st.session_state.datos_procesados:
-            tabla_placeholder.dataframe(
-                pd.DataFrame(st.session_state.datos_procesados),
-                use_container_width=True,
-                height=300
-            )
-        else:
-            tabla_placeholder.info("Los resultados aparecerán aquí durante el procesamiento.")
-
-        # Log terminal
-        st.markdown("**Terminal de Sistema**")
-        log_placeholder = st.empty()
-        if st.session_state.log_lines:
-            render_log(log_placeholder)
-
-        # Botones de acción post-proceso
-        if st.session_state.datos_procesados:
-            col_exp, col_lmp = st.columns(2)
-            with col_exp:
-                # Exportar a Excel
-                df_exp = pd.DataFrame(st.session_state.datos_procesados)
-                buf = io.BytesIO()
-                with pd.ExcelWriter(buf, engine="openpyxl") as writer:
-                    df_exp.to_excel(writer, index=False, sheet_name="Resultados")
-                st.download_button(
-                    "📥 Exportar a Excel",
-                    data=buf.getvalue(),
-                    file_name="bitacora_resultados.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+            # Tabla de resultados en vivo
+            tabla_placeholder = st.empty()
+            if st.session_state.datos_procesados:
+                tabla_placeholder.dataframe(
+                    pd.DataFrame(st.session_state.datos_procesados),
+                    use_container_width=True,
+                    height=250
                 )
-            with col_lmp:
-                if st.button("🗑 Limpiar Datos", use_container_width=True):
-                    st.session_state.datos_procesados = []
-                    st.session_state.log_lines = []
-                    st.session_state.processing_done = False
-                    st.rerun()
+            else:
+                tabla_placeholder.info("Los resultados aparecerán aquí durante el procesamiento.")
+
+            # Botones de acción post-proceso
+            if st.session_state.datos_procesados:
+                col_exp, col_lmp = st.columns(2)
+                with col_exp:
+                    # Exportar a Excel (Naranja)
+                    st.markdown("""<style>div[data-testid="stDownloadButton"] > button { background-color: #FF9500 !important; color: white !important; }</style>""", unsafe_allow_html=True)
+                    df_exp = pd.DataFrame(st.session_state.datos_procesados)
+                    buf = io.BytesIO()
+                    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+                        df_exp.to_excel(writer, index=False, sheet_name="Resultados")
+                    st.download_button(
+                        "📥 Exportar a Excel",
+                        data=buf.getvalue(),
+                        file_name="bitacora_resultados.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                with col_lmp:
+                    # Limpiar Datos (Rojo)
+                    st.markdown("""<style>button[key="btn_limpiar"] { background-color: #FF3B30 !important; color: white !important; }</style>""", unsafe_allow_html=True)
+                    if st.button("🗑 Limpiar Datos", use_container_width=True, key="btn_limpiar"):
+                        st.session_state.datos_procesados = []
+                        st.session_state.log_lines = []
+                        st.session_state.processing_done = False
+                        st.rerun()
+
+        st.markdown(" ") # Espacio
+        
+        with st.container(border=True):
+            st.markdown("### 💻 Terminal de Sistema")
+            log_placeholder = st.empty()
+            if st.session_state.log_lines:
+                render_log(log_placeholder)
+            else:
+                st.caption("Esperando inicio de proceso...")
 
     # --- GENERAR BITÁCORA (subir a Excel existente) ---
     if generar_clicked and pdf_file:
