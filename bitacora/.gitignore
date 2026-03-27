@@ -1,0 +1,21 @@
+# Secretos (NUNCA subir a GitHub)
+.env
+*.json
+.streamlit/secrets.toml
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
