@@ -1,4 +1,4 @@
-import { supabase, getProyectos, enviarMensajeContacto, getSession, signIn, signOut, getMensajesContacto, registrarUsoHerramienta, getAppSetting } from './supabase-config.js';
+import { supabase, getProyectos, enviarMensajeContacto, getSession, signIn, signOut, getMensajesContacto, registrarUsoHerramienta, getAppSetting, getVideosYoutube } from './supabase-config.js';
 
 // --- GESTIÓN DE VISTAS (SCROLL) ---
 window.goHome = (e) => {
@@ -104,6 +104,45 @@ window.slideCarousel = (direction) => {
     const scrollAmount = card.offsetWidth + 30; // 30px is the gap
     wrapper.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
 };
+
+// --- FETCH VIDEOS YOUTUBE ---
+let videosLoaded = false;
+async function cargarVideos() {
+    if (videosLoaded) return;
+    const container = document.getElementById('video-carousel');
+    if(!container) return;
+    
+    // Skeleton temporal
+    container.innerHTML = '<div style="color:#777; width:100%; text-align:center; padding: 20px;">Cargando videos...</div>';
+    
+    const videos = await getVideosYoutube();
+    container.innerHTML = '';
+    
+    if(!videos || videos.length === 0) {
+        container.innerHTML = '<div style="color:#777; width:100%; text-align:center; padding: 20px;">No hay videos publicados por el momento.</div>';
+        return;
+    }
+
+    videos.forEach((v) => {
+        let videoId = '';
+        if(v.url.includes('watch?v=')) {
+            videoId = v.url.split('watch?v=')[1].split('&')[0];
+        } else if(v.url.includes('youtu.be/')) {
+            videoId = v.url.split('youtu.be/')[1].split('?')[0];
+        } else {
+            // Asume que es un link embed o ID directo
+            videoId = v.url.includes('embed/') ? v.url.split('embed/')[1] : v.url;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.innerHTML = `<iframe src="https://www.youtube.com/embed/${videoId}" title="${v.titulo || 'YouTube video player'}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+        container.appendChild(card);
+    });
+    
+    videosLoaded = true;
+}
+setTimeout(cargarVideos, 600);
 
 // --- FORMULARIO DE CONTACTO ---
 document.getElementById('contact-form').addEventListener('submit', async (e) => {

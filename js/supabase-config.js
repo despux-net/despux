@@ -31,6 +31,23 @@ export async function getProyectos() {
 }
 
 /**
+ * Obtiene la lista de videos de YouTube
+ * @returns {Promise<Array>} Lista de videos
+ */
+export async function getVideosYoutube() {
+  const { data, error } = await supabase
+    .from('videos_youtube')
+    .select('*')
+    .order('orden', { ascending: true })
+
+  if (error) {
+    console.error('Error al cargar videos:', error.message)
+    return []
+  }
+  return data
+}
+
+/**
  * ==========================================
  * MÓDULO: CONTACTO
  * ==========================================
