@@ -145,3 +145,29 @@ export async function getMensajesContacto() {
   
   return data
 }
+
+/**
+ * ==========================================
+ * MÓDULO: CONFIGURACIÓN
+ * ==========================================
+ */
+
+/**
+ * Obtiene el valor de un ajuste general de la aplicación  
+ * @param {string} settingName - Nombre del ajuste a buscar
+ * @returns {Promise<string|null>} Valor del ajuste
+ */
+export async function getAppSetting(settingName) {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('setting_value')
+    .eq('setting_name', settingName)
+    .single()
+
+  if (error) {
+    console.error(`Error al obtener el ajuste '${settingName}':`, error.message)
+    return null
+  }
+  
+  return data?.setting_value || null
+}

@@ -1,4 +1,4 @@
-import { supabase, getProyectos, enviarMensajeContacto, getSession, signIn, signOut, getMensajesContacto, registrarUsoHerramienta } from './supabase-config.js';
+import { supabase, getProyectos, enviarMensajeContacto, getSession, signIn, signOut, getMensajesContacto, registrarUsoHerramienta, getAppSetting } from './supabase-config.js';
 
 // --- GESTIÓN DE VISTAS (SCROLL) ---
 window.goHome = (e) => {
@@ -82,8 +82,18 @@ async function cargarProyectos() {
     proyectosLoaded = true;
 }
 
-// Inicializar proyectos silenciosamente
+// Inicializar silenciosamente
 setTimeout(cargarProyectos, 500);
+
+// Fetch y configurar URL de descarga
+async function configurarBotonDescarga() {
+    const url = await getAppSetting('bitacora_download_url');
+    if (url) {
+        const btn = document.getElementById('bot-download-btn');
+        if (btn) btn.href = url;
+    }
+}
+configurarBotonDescarga();
 
 // --- FORMULARIO DE CONTACTO ---
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
