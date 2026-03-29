@@ -126,7 +126,7 @@ summary::after { content: '▾'; font-size: 0.8em; }
 .project-tag { color: var(--primary); font-size: 0.85rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
 .project-title { font-size: 2rem; margin-bottom: 20px; line-height: 1.2; }
 .project-desc { color: var(--text-muted); margin-bottom: 30px; font-size: 1rem; }
-.btn-project { display: inline-block; text-decoration: none; color: white; border: 1px solid var(--primary); padding: 10px 25px; text-align: center; border-radius: 4px; transition: all 0.3s; align-self: flex-start; }
+.btn-project { display: inline-block; text-decoration: none; color: white; background: transparent; border: 1px solid var(--primary); padding: 10px 25px; text-align: center; border-radius: 4px; transition: all 0.3s; align-self: flex-start; cursor: pointer; font-family: inherit; font-size: 1rem; }
 .btn-project:hover { background: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
 
 /* --- VIDEOS SECTION --- */

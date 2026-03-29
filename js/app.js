@@ -73,7 +73,13 @@ async function cargarProyectos() {
                 <span class="project-tag" data-i18n="work_tag">${p.categoria || 'PROYECTO'}</span>
                 <h2 class="project-title">${p.titulo}</h2>
                 <p class="project-desc">${p.descripcion}</p>
-                ${p.link ? `<a href="${p.link}" class="btn-project" target="_blank">VER DETALLES</a>` : ''}
+                ${p.descripcion_detallada ? `
+                <div class="project-details" id="details-${p.id}" style="display: none; margin-bottom: 20px; color: #cbd5e1; border-left: 2px solid var(--primary); padding-left: 15px; font-size: 0.95rem;">
+                    ${p.descripcion_detallada}
+                </div>
+                <button type="button" class="btn-project" onclick="document.getElementById('details-${p.id}').style.display = document.getElementById('details-${p.id}').style.display === 'none' ? 'block' : 'none'">VER DETALLES</button>
+                ` : ''}
+                ${p.link ? `<a href="${p.link}" class="btn-project" style="margin-top: 10px; background: rgba(59,130,246,0.1);" target="_blank">ENLACE EXTERNO</a>` : ''}
             </div>
         `;
         container.appendChild(article);
