@@ -95,6 +95,16 @@ async function configurarBotonDescarga() {
 }
 configurarBotonDescarga();
 
+// --- CARRUSEL VIDEOS ---
+window.slideCarousel = (direction) => {
+    const wrapper = document.getElementById('video-carousel');
+    if (!wrapper) return;
+    const card = wrapper.querySelector('.video-card');
+    if (!card) return;
+    const scrollAmount = card.offsetWidth + 30; // 30px is the gap
+    wrapper.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+};
+
 // --- FORMULARIO DE CONTACTO ---
 document.getElementById('contact-form').addEventListener('submit', async (e) => {
     e.preventDefault();

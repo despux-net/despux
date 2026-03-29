@@ -129,6 +129,110 @@ summary::after { content: '▾'; font-size: 0.8em; }
 .btn-project { display: inline-block; text-decoration: none; color: white; border: 1px solid var(--primary); padding: 10px 25px; text-align: center; border-radius: 4px; transition: all 0.3s; align-self: flex-start; }
 .btn-project:hover { background: var(--primary); box-shadow: 0 0 15px var(--primary-glow); }
 
+/* --- VIDEOS SECTION --- */
+#videos-section {
+    padding: 80px 40px;
+    background-color: rgba(10, 10, 10, 0.7);
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.carousel-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.carousel-wrapper {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    gap: 30px;
+    padding: 20px 0;
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+}
+
+.carousel-wrapper::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+}
+
+.video-card {
+    flex: 0 0 calc(33.333% - 20px);
+    scroll-snap-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    transition: transform 0.3s;
+    aspect-ratio: 16 / 9;
+}
+
+.video-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    box-shadow: 0 15px 40px rgba(59, 130, 246, 0.2);
+}
+
+.video-card iframe {
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+}
+
+.carousel-btn {
+    background: rgba(20, 20, 20, 0.8);
+    color: white;
+    border: 1px solid var(--border);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    position: absolute;
+    z-index: 10;
+    transition: all 0.3s;
+    backdrop-filter: blur(5px);
+}
+
+.carousel-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    transform: scale(1.1);
+}
+
+.prev-btn { left: -25px; }
+.next-btn { right: -25px; }
+
+.youtube-link-wrapper {
+    text-align: center;
+    margin-top: 50px;
+}
+
+.btn-youtube {
+    display: inline-block;
+    background: #ef4444;
+    color: white;
+    padding: 12px 30px;
+    border-radius: 4px;
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+}
+
+.btn-youtube:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+}
+
 /* --- CONTACT SECTION --- */
 .contact-section { background-color: rgba(20,20,20,0.9); padding: 80px 40px; border-top: 1px solid var(--border); position: relative; z-index: 2; }
 .contact-wrapper { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: start; }
