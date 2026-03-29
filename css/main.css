@@ -235,6 +235,17 @@ summary::after { content: '▾'; font-size: 0.8em; }
     box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
 }
 
+@media (max-width: 992px) {
+    .video-card { flex: 0 0 calc(50% - 15px); }
+    .prev-btn { left: 10px; }
+    .next-btn { right: 10px; }
+}
+
+@media (max-width: 600px) {
+    .video-card { flex: 0 0 100%; }
+    .carousel-btn { width: 40px; height: 40px; font-size: 1.2rem; }
+}
+
 /* --- CONTACT SECTION --- */
 .contact-section { background-color: rgba(20,20,20,0.9); padding: 80px 40px; border-top: 1px solid var(--border); position: relative; z-index: 2; }
 .contact-wrapper { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; align-items: start; }
